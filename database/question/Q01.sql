@@ -1,0 +1,6 @@
+
+SELECT FNAME,LNAME,BDATE,ADDRESS
+FROM employee
+WHERE Sex='F';
+
+

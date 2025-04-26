@@ -1,0 +1,5 @@
+SELECT P.PNAME, D.DNAME, E.FNAME, E.LNAME, E.ADDRESS
+FROM project P
+JOIN department D ON P.DNUM = D.DNUMBER
+JOIN employee E ON D.MGR_SSN = E.SSN
+WHERE D.DNAME = 'Research';
