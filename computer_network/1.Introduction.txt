@@ -1,0 +1,865 @@
+
+1.1 What is Internet
+
+hosts (end system) 連接到網路network的device
+ex: 手機 電腦 收音機
+網路由很多個end system和core組成 core類似中間的轉運站 
+core包含了router和switch
+一個end system要連接到另一個end system是透過這些core
+end system1 -> core1 -> core2 ..... ->end system2
+這些->都是communication links
+
+communication links 連結網路有有線 無線的方式
+ex: fiber copper radio satellite
+
+transmission rate用bandwidth定義 (理論值) 實際是throughput
+
+packet switches 用routers和switches傳送data packets
+資料會被切成packets來做傳送
+
+
+OSI Model
+7 application layer
+6 presentation layer
+5 session layer
+4 transport layer
+3 network layer
+2 data link layer
+1 physical layer
+
+
+Routers路由器
+用來連接不同網路 在不同網路之間送封包    至少會連接2個networks
+在第三層 network layer 可以處理ip address
+會根據目標ip的位置選一條最佳的路徑
+一個router至少有2個ip address 
+內部ip(LAN ip) 和 外部ip(WAN ip)
+
+
+LAN: Local area network
+是指範圍比較小的網路 同一建築物或相鄰區域內的
+ex: 家 學校 公司等等的內部網路
+
+
+WAN: Wide area network
+範圍很大的網路
+ex:城市 國家 全球 
+internet就算是最大的WAN
+WAN通常是由多個LAN
+地理範圍大的時候需要透過ISP來接入
+
+ISP: Internet service provider
+ISP是提供網路接入的公司 用戶透過ISP接入internet
+透過ISP接入WAN
+ex: 電信公司
+
+
+gateways 
+連接網路之間的關鍵點 類似網路的入口和出口
+像是一個LAN和另一個LAN之間就有個gateway做連接
+一個LAN要連接到WAN也需要一個gateway(router switch)
+BGP(Border Gateway Protocol) 邊界閘道器協定
+
+
+different network的定義通常是指LAN不同
+像是不同WIFI就算是不同網路
+
+
+4G/5G行動網路算是WAN
+可以想成是覆蓋大範圍的無線網路 透過基地台 core和ISP做連接到internet
+一樣需要gateway
+
+IP (Internet Protocol Address) (network layer)
+router會根據IP位置選最佳的路徑
+
+
+發送packets是透過headers和forwarding tables
+
+
+headers包括了傳輸packets時重要的訊息
+ex: 原ip位置 目標ip位置 協議類型 TTL
+TTL(Time To Live): packet在網路中能存活的最大時間
+router透過分析header知道要送到哪 用什麼protocol等
+
+Forwarding Table(轉發表)
+Forwarding table是router內部的一個table
+用來記錄特定ip應該要用哪個接口轉發出去
+從header解析出目標IP位置以後透過forwarding table決定之後的路徑
+
+
+Protocols(網路協議)
+通信的規則和標準 規範數據怎麼在網路上傳輸 解析 處理
+數據格式: 怎麼分header和data
+傳輸方式: 怎麼處理掉包 重傳 確認等問題
+protocol的重點在通訊規則 封包的規範 確保兼容性
+
+
+ICMP Protocol(Internet Control Message Protocol)
+用來處理網路層的設備(routers)之間控制訊息和錯誤報告
+
+1. Destination Unreachable: 當packet無法送到目的地 router會透過ICMP
+送一個"目的地不可達"的訊息
+
+2. Echo Request/Echo Reply(Ping): 使用ping命令時會發送ICMP的
+Echo Request對方如果有Echo Reply代表網路連通
+
+3. Router Advertisement: router可以向外廣播自己的存在
+
+4. Router Solicitation: device向router請求網路配置的訊息
+
+5. Time Exceeded(TTL) (Time to live):
+如果packet傳輸時間超過設定值(TTL) ICMP會發送packet loss
+
+6. Timestamp
+
+7. Traceroute: 會用ICMP追蹤packet從源頭到目的地經過的所有router
+
+
+
+Switches(Data Link Layer)
+
+1.連接同一個LAN內的data 負責LAN內部不同設備的傳輸
+可以想成switch是處理單個LAN內部的傳輸 
+LAN再往外到其他LAN或WAN是router在傳輸
+
+
+2.主要在第2層(data link layer)工作
+透過MAC地址決定packet的路徑 (LAN內)
+
+第3層(Network layer) 有些比較高級的switch會一起處理用IP跨網路的部分
+
+3. 使用MAC address做data forwarding
+每個device的MAC address是唯一的
+當switch接收到一個packet 會去看packet中的MAC address決定要送到哪
+
+switch會維護一個MAC address table
+
+4.有switches的LAN可以叫做switched LANs或switched Ethernet LANs
+
+通常一個LAN的WAN IP只有一個 EX:192.168.1.x
+LAN IP則是用來辨別deivce ex:192.168.1.1 ， 192.168.1.2 每個device有唯一的LAN IP
+
+
+
+
+HUB (Physical Layer) (第1層)
+用物理的方式把多個device連接到同一個網路
+通常是4或8個ports(端口)形成一個broadcast domain(廣播域)
+他是用broadcast的方式 代表他不會管目標是給誰 而是會廣播給全部的port
+
+hub的效率和安全性都差 現在基本上都被switch取代
+
+
+VLAN是Switch可以再把LAN切得更細 廣播時只廣播給想要的device
+
+
+
+
+
+Internet
+
+Internet其實就是network of networks
+Internet連接了全球多個ISP(Internet Service Providers)
+
+不同的ISP提供各自的網路服務 網路之間透過IXP(Internet Exchange Point)來connect
+
+
+Tiers(分層) of ISPs (Internet Service Providers)
+1. Tier 1 ISPs: 全球大型網路服務商 
+這些Tier 1 ISP之間會進行peering(對等互聯) 之間不需要付錢
+2. Regional ISPs(區域ISP)
+服務特定的國家/地區 透過購買連接Tier 1 ISP接入更大範圍的用戶
+3. Access ISPs(接入ISP)
+直接向最終用戶(家庭 公司等)提供網路接入的服務商 EX:電信公司
+
+IXP就是ISP之間數據交換的焦點 幫助各類ISP高效的連接
+
+Content providers 大型內容提供商 ex:google facebook
+會為了更高效率的傳輸 直接連接ISP或IXP來減少數據轉送的次數 優化速度
+
+Protocol確保通訊之間的規則
+
+
+
+Internet standards(互聯網標準)
+IEFT(Internet Engineering Task Force) 互聯網工程任務組
+是一個專注在開發和推廣internet的組織 主要負責protocols 開發一些標準
+(TCP/IP)
+
+RFCs(Request for Comments)是IEFT發布的標準文檔
+
+
+Internet service view (從service來看)
+1. infrastructure(基礎設施) for applications
+提供網路服務給web email game...
+
+2.programming interface for apps
+讓人可以透過hooks去接收或送訊息over the internet
+
+3.service options
+提供了類似郵政服務選擇 可以照自己考量選擇不同protocol 傳輸質量 低延遲等
+
+protocol定義了訊息的格式、順序、transmission的actions
+不同設備在網路之間溝通的標準
+
+-----------------------------------------------------------------------
+
+1.2 Network edge
+
+network edge由hosts(主機)構成 host又分為clients(客戶端)和server(服務器)
+clients: 像是電腦 手機等
+server: 通常是data center(數據中心) 用來儲存/處理data 像是web服務器 mail服務器
+
+
+access network(接入網路) 和 physical media(物理媒體)
+透過有線(wired)或無線(wireless)的方式讓end system連接到internet
+wired: 像是光鮮 電纜 dsl 通常傳輸速度快 穩定
+wireless: 像是wifi 4g 5g 傳輸數據比較靈活 但穩定性和速度容易被環境影響
+
+
+internet core(網路核心)
+interconnected routers(互聯routers) 由大量router連接不同網路
+network of networks 大量的不同網路連接出internet
+
+
+如何把end system連接到edge router?
+1.residential access networks(家庭接入網路): 通常是ISP提供網路服務
+2.institutional access networks(機構接入網路) : 學校 公司等 通過wifi router
+3.mobile access network(移動接入網路):4g 5g透過運營商的基礎設施和router連接
+
+bandwidth是單位時間可以船的bit數 網路的bandwidth影響到用戶的體驗(上傳 下載速度)
+
+shared or dedicated(共享或專用)
+shared是多個user用同一個網路(ex:wifi 熱點) 用戶越多速度越慢
+dedicated(專用) 通常速度和穩定性更好
+
+
+Bandwidth vs Throughput
+Bandwidth是網路的最大數據傳送容量 理論上的最大值
+Throughput是實際傳輸時的速率
+單位通常都是bps(bits per second) 通常throughput低於bandwidth
+因為網路會受擁塞(congestion)或其他因素影響導致實際的傳輸速率變慢
+
+
+
+
+access net: Digital Subscriber Line(DSL)
+
+DSL透過telephone line(電話線)提供高速的網路接入 (包括ADSL VDSL)
+
+1.Splitter(分離器):負責分離信號 (分成語音通訊和數據傳輸)
+確保用戶可以同時打電話和上網
+2.DSLAM(DSL Access Multiplexer) (DSL接入多工器)
+電信公司的central office把多個用戶的DSL連在一起 用更高BW的網路接入
+3.Multiple channels for different functions
+訊號會被分成3個頻率區段
+telephone line:  0-4kHz做聲音通訊
+upstream data:   4-50kHz給user上傳data到internet
+downstream data: 50k-1MHz給user下載東西from internet
+
+ADSL根據用戶需求提供不同版本ADSL, ADSL Lite, ADSL over ISDN.....
+最新的應該是ADSL2 ADSL2+
+
+ADSL的下載速度取決於user的access multiplexer到DSLAM的距離
+越遠訊號越弱
+
+重點就是ADSL透過網路線連接 頻道分成語音部分和數據部分(分為上傳 下載)
+用戶到DSLAM的距離影響速度
+
+
+
+
+HFC(Hybrid Fiber-Coaxial) cable network
+HFC結合兩種傳輸方式fiber(光纖)和coaxial(銅鈾電纜)
+fiber用在長距離 高效且快速 適合long distance (跨區域)
+coaxial用在短距離 適合local delivery (ex: 街區或小區的家庭網路)
+
+
+HFC的組件
+1.Cable Modem(電纜調製解調器): 家庭中的電腦 電視等設備透過cable modem連接到網路
+
+2.Splitter(分離器): splitter用在分離電視和internet信號 確保可以同時看電視和用網路
+
+3.共享網路: 多個家庭共享一個電纜基礎設施 
+所有聯接的家庭使用同一條主電纜和cable headend相連
+cable headend是整個網路的控制中心 負責傳數據到網路和處理電視信號
+
+4.Fiber Nodes(光纖節點): 把光纖信號轉成銅鈾電纜傳輸 連接到用戶家庭
+CMTS(Cable Modem Termination System)負責和連接internet 連到更廣泛的網路
+
+5.frequency division multiplexing(FDM): 把不同頻段的信號分到不同頻道
+讓不同頻率的信號(電視、數據、控制信號)可以透過同一個電纜傳輸
+
+HFC的特性
+1.Asymmetric data rates: 下載的速度會遠高於上傳的速度
+
+
+
+重點就是
+1. HFC網路結合fiber和coaxial 用來提供家庭電視和網路的服務
+2. download速度遠高於upload的速度
+3. 多個家庭共享一條線 性能取決於使用者數量和網路流量
+4. FDM(Frequency division multiplexing)使同一根電纜可以同時傳輸多個信號
+
+
+
+FTTH Internet(Fiber To The Home 光纖到戶)
+FTTH是直接透過光纖將internet連到用戶家 光纖的BW更高 傳輸也更穩定
+這種網路架構通常基於PON(Passive Optical Network 無源光網路)
+用分光器(splitter)來分配信號
+
+FTTH的組件
+1.fiber connection: 從central office(CO)直接用光纖送到家庭
+2.Optical Line Terminal(OLT): OLT管理著多個家庭的光纖信號聚集點 管理上傳/下載
+3.optical network terminator(ONT): 把光纖傳來的光訊號轉為數據
+4.optical splitter:將一個光纖訊號分配給多個用戶
+
+FTTH的特色
+1.高速 因為直接連光纖 BW大 上傳下載都更快
+2.無源設備 不須供電的設備 降低成本和能源消耗
+3.低延遲 光纖的物理特性 傳輸特別快
+
+重點就是FTTH把光纖直接連到家庭 PON架構可以高效傳輸
+網路中的關鍵設備有OLT ONT 光分路器
+提供用戶高速 低延遲的網路連接
+
+
+
+Ethernet (Enterprise Access Networks) 最常見的LAN技術之一
+1.企業訪問網路(enterprise access networks):給大型組織提供內部網路連接
+ex: 公司 大學 醫院
+
+2.Ethernet的傳輸速率很高 支援不同規模和需求
+100Mbps 1Gbps 10、100、400Gbps
+
+3.連接方式是用Ethernet switch 負責把router傳來的信息根據MAC address分配給device
+
+和平常的wifi不同 wifi是無線的  Ethernet是有線的
+wifi是類似把ethernet switch再擴展成wireless的
+
+wifi的接入點是Wi-Fi AP(Access Point) 把有線網路信號轉為無線的
+讓設備(end system)可以用無線的方式連接到router
+
+WLAN(Wireless Local area network) 範圍是建築內
+WWAN(Wireless Wide area network) 範圍比較大
+
+
+IEEE (I triple E) infrastructure(基礎設施) mode 
+利用wireless router來達到讓device無線通訊
+
+ad hoc mode
+讓divice之間不用infrastucture就直接互相連接 達到一個peer to peer的wireless LAN
+peer to peer 對等式網路:去中心化 讓使用者群(peers)之間交換資訊
+
+
+VANET(Vehicular Ad-Hoc Networks) 車聯網
+V2V (Vehicle-to-Vehicle) 車和車之間
+V2I (Vehicle-to-Infrastructure) 車和基礎設施(roadside units)之間
+V2P (Vehicle-to-Pedestrian) 車和人 (用人的智慧型裝置)
+RSU(roadside unit)
+ 
+VANET scenario(vehicle collision)
+Inter-vehicle communications(V2V): 車輛之間通信避免碰撞
+Vehicle-to-roadside communication(V2I): 車輛和基礎設施之間通信
+Emergency event management: 處理緊急事件 ex:救護車
+road safety:用警報和通信提升道路交通安全
+
+
+Cellular (4G/5G)
+4g5g可以用在vehicular network(超聯網)
+車和車 車和基礎設施、RSU 基礎設施和基礎設施
+base station和GPS
+
+
+mobile communication systems(1G-5G)
+1G: 用analog訊號傳輸 只有voice calls
+2G: 用digital傳輸 只有voice和sms service
+3G: 專注在mobile internet 可以簡單的傳voice、video calls、SMS、email
+4G: LTE 高速網路high-speed internet 可以更快的video stream
+5G: 速度大概是4G的10倍 非常低的延遲 可以用在遠端手術 AR/VR
+
+5G Enhanced Mobile Broadband(eMBB)
+下載速度非常快 ex: UHD(Ultra-high definition) video
+3d video AR/VR(Augmented Reality/Virtual Reality)
+上傳速度快 ex: HD video
+URLLC(Ultra-Reliable and Low Latency Communictions)
+自動駕駛 AR 遠端手術 工業自動化
+
+
+mobile communication world
+現實中是結合2G 3G 4G 5G WiFI 變成seamless(無縫的) communication
+shared infrastructure 共享基礎設施 ex:base station, cloud resource
+連接了不同RANs(Radio Access Networks) ex:GSM, UMTS, LTE. Cloud-RAN
+operator network促進不同layer之間的data transport
+結合cloud和big data增加速度和穩定
+達到低延遲的效果
+
+
+Cellular network(蜂巢式網路)
+範圍從小到大: Femtocells < Picocells < Microcells < Macrocells
+
+
+
+5G/6G space-air-ground integrated network (空中的部分)
+高度從高到低是
+satellite network
+air-based network
+ground network
+
+satellite network 最高層分成GEO, MEO, LEO 
+透過inter satellite links做傳輸 (衛星)
+
+air-based network 地面(ground)跟衛星(satellite)之間的部分
+ex: 無人機(drone) planes balloon
+
+ground network 包含data center, routers, base station, users
+ground station可以透過上面兩層的東西(air-based, satellite)聯繫
+
+也有underwater network(水下)部分 (略過)
+
+
+
+__
+host: send packets of data
+
+host sending function(主機發送功能) 這裡在講如何transmission
+message會先被拆成packets (長度L)
+transmission rate傳輸速率R 也可以叫做link capacity或是link bandwidth
+
+packet transmission delay(傳輸延遲)的定義是送一個封包到網路需要的時間
+= time needed to transmit L-bit packet into link 
+= L(bits)/R(bits/sec) 單位就是sec
+一個packet需要的bit數 除以 每秒能送的bit數(傳輸速率) = 需要的時間
+__
+
+
+
+physical media (物理媒介)
+bit是發送端tranmsmitter和接受者receiver之間傳送的最小單位
+physical link是transmitter和receiver之間傳輸用的物理連結
+guided media 有導介質
+unguided media 無導介質 無線的
+
+radio 無線電波
+
+
+-----------------------------------------------------------------------
+
+1.3 Network core
+
+mesh of interconnected routers (很多連接)
+
+packet-switching
+hosts會把application layer的message切成packets
+
+從source到destination把packet往前送
+(router送往下一個router)的動作叫forwarding
+
+each packet transmitted at full link capacity
+理想狀況下packet的傳輸速率會等於最大的capacity
+但實際上會受其他因素影響 ex:網路壅塞 延遲等
+
+store-and-forward: 一定要整個packet都送到router了才會繼續往下一個送
+花L/R sec來傳輸一個L-bit packet在R bps的link中
+
+End-end delay = 2*(L/R)     (沒有propagation delay的情況下)
+One-hop delay = (L/R)
+一個起點到一個終點需要的時間 (A -> B -> C)
+一個節點到下一個節點L/R 且router需要收到所有的資料才繼續往下一個(再L/R)
+
+
+
+Queueing delay, loss
+
+當arrival rate 超過 transmission rate的情況會有兩個解決方法
+1. queue 排隊等待傳輸
+2. dropped (lost) 當memory(buffer)滿的時候 掉包(packet loss)
+一般而言會先嘗試排隊 buffer滿了再丟包
+
+兩個key network-core function
+1.Routing: router裡會存一個table 
+用routing algorithm決定source destination route
+table是看packet的header決定output link(決定下一個router)
+
+2.Forwarding(轉發): forwarding是指從router的input端傳到合適的output端的過程
+
+
+alternative core: circuit switching (電路交換)
+是一種不同於packet switch的網路傳輸方式 用在傳統網路的電話網路
+沒有使用時circuit segment會idle (no sharing)
+使用時每個call會有一個專門給他用的電路
+router和router之間有很多條電線 使用時選其中一條idle的給他用
+
+
+FDM(Frequency Division Multiplexing):用頻率分割不同區塊(類似channel)
+可以同時傳輸不互相干擾
+
+TDM(Time Division Multiplexing):用時間來分slot
+ex:1 2 3 4 1 2 3 4 1 2 3 4這樣
+1, 2單個是slot ， 一組1 2 3 4叫做frame
+類似cpu的time sharing
+
+packet switching和circuit switching
+circuit switching是預先設好link use的 沒用到的就是浪費
+
+packet switching可以讓更多user share同一個網路
+而且可以照需求allocate link給user
+link capacity 給user share only when they need transmit packet
+
+packet switching的效率通常更好 因為實際的user active time通常不高
+要用的時候再分給他 效率會更好 delay會更低
+
+
+packet switching 
+advantage
+1. 適合bursty data(突然data需求很大)
+2. 提供resource sharing
+3. 不用call setup
+challenges
+1. 可能還是會壅塞(congestion)
+2. 有packet delay和loss的風險
+3. 需要protocol讓data transfer Reliable和control congestion
+想要在packet switching加上circuit like behavior
+可以做Bandwidth guarantees 特別是對聲音或影片應用
+
+
+Internet structure: network of networks
+1. access IPSs: end system透過ISP連接到internet
+2. Interconnection: ISP一定要interconnected(互聯) for 任意兩個host
+   要能讓任意兩個host互聯(interconnected)
+3. network complexity: 用很多networks結合出的network是很complex的
+4. Evolution factors: internet發展變化的原因
+   economic(經濟)和national police(國家政策)
+
+
+
+ISP非常多 要讓任兩個都可以互聯
+option1 如果真的每兩個之間做連接會要O(N^2) 不可能做到
+
+option2 弄一些global ISP 讓每個access net都去聯一個global ISP
+customer和provider達成economic agreement
+
+competition: ISP之間會競爭 所以每個access net不會都連接到同一價ISP
+    ISPA ISPB ... (Viable global ISPs)
+
+不同ISP之間需要互聯(interconnect)
+可以透過IXP(Internet exchange point)或直接peering link
+
+IXP(Internet exchange point)是一個物理位置 通常有一個組織做運營
+幫助多個ISP和網路在同一個地方做數據交換
+優勢:
+1.成本低 不用再付錢給上游的ISP商
+2.延遲低 不用繞遠路經過很多個router
+3.擴展性 多個ISP可以透過ISP同時互聯 提高網路擴展性
+
+Peering Link(對等互聯)是一種專門的連接協議 物理或邏輯連接兩個ISP
+透過peering讓兩個ISP可以數據交換
+通常是為了平等互利 不用再支付過境費用
+優勢:
+1.控制性強 可以雙方協商交換規則 管理方式
+2.沒有中間商 減少延遲和費用
+
+Link分成兩種
+private peering是兩個ISP 不透過第三方(ex:IXP) 通常用來處理大量的數據
+public peering透過IXP連接 多個ISP在一個IXP上公共交換
+
+
+regional networks(區域網路)用來連接網路或更大範圍的ISP
+regional network把多個access net連接在一起再去接到ISP
+
+Content provider networks: 一些公司會運營自己的網路 獨立於傳統ISP
+
+
+
+network分成三層 tier1到tier3 高到低
+tier 1 networks:
+    internet的backbone(類似骨架) 最上層的網路 
+    tier1之間連接不須付費 
+
+tier 2 networks:
+    intermediate network(中間層) 連接其他第2層和第1層
+    用PoPs(Points of Presence)做連接
+    付費連接到tier 1做到broader access
+
+tier 3 networks:
+    給end user 提供internet access
+    可以同時連接多個ISP(multi-homed)或單個ISP(single-homed)
+
+
+Internet Exchange Point(IXPs)
+1. facilitate(促進) traffic exchange between ISPs
+2. 減少latency(延遲)和cost
+
+Data flow
+hierarchical(等級制) structure (從tier1到tier3)
+end user使用tier 3 ISPs
+
+
+-----------------------------------------------------------------------
+
+1.4 Delay, loss, throughput in networks
+
+loss and delay
+
+packets在router buffer中有queue
+packet arrival rate > output link capacity
+也就是packet到router的速度>router輸出的速度時 
+還沒被送出去的packet就需要queue排隊
+如果queue滿了(no free buffer)再送到router的packet會被drop(loss)
+
+packet delay有4個sources 從packet到達router以後才開始計算
+dproc :nodal proccessing 檢查bit error和決定output link (放到queue前)
+通常很短
+dqueue: queueing delay 在output link等待transmission的時間(queue中)
+時間取決於congestion(網路擁擠)的程度
+dtrans: transmission delay   packet length/link bandwidth (dtrans=L/R)
+排隊輪到以後送出去需要的時間  packet大小除以bandwidth 
+送出去的時間是資料大小除以頻寬
+dprop :propogation delay  length of physical link/propogation speed(dprop=d/s)
+送到下一個router需要的時間 需要送的路長除以送的速度
+
+簡單來說 dproc是在排隊前做檢查 dqueue是排隊的過程 
+dtrans是輪到他以後送出router的時間 dprop是傳到下一個目標需要的運輸時間
+
+
+Queueing delay
+R: link bandwidth(bps) 頻道每秒能傳多少bits
+L: packet length(bits) 一個packet的大小
+a: average packet arrival rate 每秒多少個packet
+La/R: traffic intensity(密度) 
+
+La/R接近0代表queueing delay很小
+La/R快到1代表queueing delay偏大
+La/R>1代表近來的比output的多 average delay infinite (可能會loss掉 所以delay time無限)
+
+
+
+Real internet delays and routes
+
+traceroute program的用來知道從設備發送後到目標設備經過的所有router的延遲和路徑
+delay measurement
+對某個router i和sender來說
+sender送3個packets經過router i
+router i收到以後會送1個packet回去給sender
+sender測量interval(transmission和reply的時間間隔)
+
+note: traceroute
+1. traceroute是簡單的程式 可以用在任何的internet host
+2. user可以特定一個目標的hostname program會送很多特殊packets給目標
+3. 這些packet會經過不同的路(不同的routers)送到目標
+4. 路徑上的這些router收到這些特殊packet以後會送一個short message(包括router name
+和address)回來給sender
+
+5.假設有n-1個router在送到目標路徑上 source會送n個special packets每個目標都是送到終點
+6.這些packet有1到n的編號
+7.第k個router收到編號k的packet就不會再把他往後送 然後會回傳訊息給source
+8.destination收到第n個packet也會回傳到source
+9.source會記錄每個編號送出到收到回傳的時間 送回的message中有那個router的name和address
+由此可以得到delay time和router路徑
+10.source可以reconstruct route(重建從source到destination路徑) 
+得到路徑和round-trip delay
+11.traceroute會做多次實驗 通常是3次 也就是會送3*n個packets
+
+
+packet loss
+queue(buffer)是有限容量的(finite capacity)
+packet送到queue時如果已經full了packet就會被drop掉(lost)
+lost掉的packet可能會retransmit(從source end system傳到previous node再傳到router)
+也可能不會retransmit
+
+
+Throughput
+sender和receiver之間transfer的速度(rate) (bits/time unit)
+兩種throughput
+instantaneous瞬間 :某個時間點的瞬間rate
+average平均 :long period of time的rate
+
+傳輸的路徑可以看成sender->router1->router2->...->receiver
+每個箭頭->類似一個pipe 會有它能提供的rate(bits/sec)
+       R1         R2         R3     Rn-1         Rn
+server -> router1 -> router2 -> ... ->router n-1 -> client
+對於每個Ri Di/Ri=ti
+
+理論上來算會是 average R = (D1+D2+...+Dn)/(t1+t2+...+tn)
+但實際上會有bottleneck link: link on end-end path that constraint end-end throughput
+速度不同時會有資料被卡住來不及送出去 或是到的資料太慢的問題
+因此決定整體rate的是由rate最慢的pipe決定的
+average R = min(R1,R2,...,Rn)
+
+實際上可能需要分給多個server
+假設capacity = R 分給10個servers 這種情況下R在計算時又會變成R/10
+
+
+
+-----------------------------------------------------------------------
+
+1.5 Protocol layers, service models
+
+network components(組件)
+
+hosts 終端 ex:手機 電腦
+routers 路由器負責不同網路之間送封包
+links (various media) 網路連接的媒介
+applications  : host上的應用程式
+protocols 通訊規範/規則
+hardware and software 實現網路功能的軟硬體
+
+network structure可以被organized (有序的組裝起來)
+
+分層的概念
+layers: 每個layer就是在提供一種service
+internal actions: 每一層layer有自己的internal actions (那一層之間的通訊)
+layer dependency: 上層的layer仰賴下層layer的service
+
+why layering?
+1.explicit structure: 清晰的結構可以明確system component之間的relation
+2.layered reference model(分層參考模型): 透過標準化明確每一層的分工
+3.modularization: 模組化可以更好做維護 某一層的東西壞了就只要處理那一層就好
+4.transparent changes: 單層的改變不影響整個系統
+
+
+internet protocol stack
+
+application: network application (HTTP, FTP, SMTP) 網路應用程式
+
+transport:procees-to-process(不同device上的process) data transfer (TCP, UDP)
+
+network: 從source到destination的routes datagrams
+
+(data) link: neighboring network elements的data transfer (Ethernet, wifi, PPP)
+
+physical: 用有線或無線傳輸bits
+
+
+ISO/OSI reference model多兩層 在application和transport層之間
+
+1.presentation layer: interprets data(加密 壓縮 調整格式)
+2.session layer: 處理data synchronization 和 recovery
+
+internet stack: 上面這兩層如果不獨立出來就要在application層中實現
+
+router是network layer(layer 3) 用packet傳送
+switch是data link layer(layer 2) 用packet或frame傳送
+hub是physical layer(layer 1) 用電訊號或bits
+switch hub都在LAN  router包含LAN和WAN
+
+
+
+-----------------------------------------------------------------------
+
+1.6 Network Security
+
+network security field 
+防止attacker exploit computer network
+defending network against attacks
+設計attack-resistant architectures
+
+Internet security
+internet最早不適設計有strong security的
+一開始創造時(initial vision)只對trusted users
+
+security要考慮所有layers
+
+
+一些攻擊方法
+Virus(病毒):需要user interation來感染user device
+當user打開被感染的東西(infected attachment) 病毒就會執行
+
+
+Worm(蠕蟲):不需要user interaction就能感染user device
+attacker送一個vunerable apllication
+這個app會自動accept and run
+user不用點東西就會中毒
+propagation: 安裝成功以後會scan網路 找其他internet內的user繼續感染
+有些會firewall exploitation(破壞防火牆)
+
+
+Spyware:用來監聽使用者
+包含了keystrokes(按鍵) website visited(瀏覽的網站)
+這些資訊會送到central server
+
+
+Botnet(殭屍網路) 一些連接到網路的program
+名字是從robot+network來的
+對連接到網路的人做spam(垃圾郵件)或DDoS
+
+
+
+
+Denial of Service(DoS)
+用excessive traffic來讓user的resources unavailable
+用bogus traffic(虛假流量)讓user access不到server或把bandwidth塞滿
+攻擊方法:
+選定一個目標(server, network resouce)攻擊
+用多個hosts 可能包含前面提到的notnet
+送一大堆packet給攻擊目標 讓流量爆滿
+
+
+
+packet sniffing: 攔截(interception)封包
+通常是對data廣播到其他device的情況 ex:shared Ethernet或Wifi
+
+sniffing mode:可以攔截所有封包(包含原本不是要傳給他的)
+可以得到密碼之類的sensitive information
+
+wireshark就是一個免費的packet sniffer
+1.packet capture(pcap): 抓traffic中的frame做snapshot
+2.packet analyzer(Wireshark): 可以翻譯和展示 對捕捉到的data和protocol作分析
+3.data flow: 檢查網路流量
+
+
+
+IP spoofing(偽造) 可以用假的ip送packet
+
+
+
+
+
+-----------------------------------------------------------------------
+
+
+錯誤筆記
+
+
+
+layer 2 protocol => link layer protocol =>Ethernet是一種
+
+SMTP(Simple Mail Transfer Protocol) =>email transmission 在apllication layer的internet stack內
+
+TCP(Transimission control protocol)=>包含error checking and flow control 重點在穩定傳輸
+
+UDP(User Datagram Protocol)=>更偏向即時的 重點在速度 EX:看影片時等等
+
+router無法決定packet destination就會把packet drop掉
+
+DNS(Domain Name System) 用來查domain name的ip
+
+ICMP(Internet Control Message Protocol) 做error report和network diagnostics
+
+multi-homed =>network device包含>1 network interface
+
+BGP(Border Gateway Protocol) 邊界閘道器協定
+
+
+分層
+application layer => 應用程式相關的 => FTP(File transfer) SMTP HTTP DNS
+
+transport layer => end to end的傳輸 =>TCP(講求穩定) UDP(講求快速)
+
+network layer: 處理不同網路之間的packet => IP ICMP
+
+link layer:相連結點之間的傳輸 =>Ethernet WiFi(IEEE) PPP
+
+Physical layer: bit等級的傳輸
+
+-----------------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+

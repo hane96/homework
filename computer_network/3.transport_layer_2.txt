@@ -1,0 +1,702 @@
+
+Building a reliable data transfer protocol
+
+Protocol progression: 一系列的increasing complex protocol
+    目標是要達到flawless, reliable的data transfer protocol 
+
+Protocol rdt1.0 是一種理想化的protocol
+    假設是completely reliable channel
+    FSM: Finite State Machine =>這在說sender/receiver都只有一個狀態(state)
+        操作簡單 不需要轉換其他狀態
+    
+    sender透過rdt_send(data)接收上層的data 包裝成packet 再送到receiver端
+    receiver透過rdt_rcv(packet)接收packet extract出data 再送到upper layer
+    No feedback: 因為假設是沒有error的 receiver不需要提供feedback給sender
+    No flow control: 假設receiver一定跟得上sender
+
+更詳細一點的看rdt1.0
+
+sending side的步驟
+    wait for data: 等上層(upper layer)傳來data
+    packet creation: 把上層傳來的data組成packet =>  make_pkt(data)
+    send packet: 包裝成packet以後送到receiver =>  udt_send(packet)
+receiving side的步驟
+    wait for data: 等sender傳到channel的packet
+    data extraction: 收到packet後extract data =>  extract(packet, data)
+    data delivery: 把extract出的data送到upper layer =>  deliver_data(data)
+
+
+下面開始考試範圍 p59
+-----------------------------------
+
+Reliable data transfer over channel with bit errors
+rdt2.0考慮bit errors
+    error detection: 用checksum bit去detect packet errors
+    receiver feedback: 送acknowledgements => positive(ACK)和negative(NAK)
+    retransmission: 壞掉的packet(corrupted packet)會resend
+
+rdt2.0 protocol : 增加了error detection和feedback
+    Uses stop-and-wait: 在收到ACK/NAK之前會等 收到以後才送下一個packet
+    extra checksum bits: 增加error detection用的redundancy 
+    retransmission: response如果是garbled(亂碼)會resend data 
+    sequence numbers: 有編號來track order 避免duplicate (沒有明確的序列號機制)
+
+rdt2.1 protocol : 多了sequence number和double FSM state
+    Sequence numbers: 用1bit sequence number 0或1來區分是new或retransmit
+    doubled FSM states: 因為要為每個序列號(0或1)分別管理狀態 FSM複雜度加倍
+    避免ACK/NAK損壞會造成的重複處理
+
+rdt2.2 protocol : 多了NAK-free和sequence number in ACK
+    NAK-free: 用duplicate ACK去indicate errors 
+    sequence numbers in ACKs: ACK搭配序列號 可以確保receiver正確接收
+
+rdt3.0 protocol : 多了timer 讓timeout時可以retransmit 在3.0以前都沒有
+    如果ACK/NAK掉了sender就停住了
+
+
+
+rdt2.0
+sending side步驟
+    wait for data: 等app層的data
+    packet creation: 收到data以後make packet並加上checksum和error detection 
+        make_pkt(data, checksum)
+    transmission: 把packet送給receiver =>  udt_send(sndpkt)
+    Wait for ACK or NAK 
+        送完以後等待feedback(等receiver response)
+        ACK received: 收到ACK就可以確認成功傳送
+        NAK or error detected: 收到NAK或發現錯誤就做packet retransmission 
+            udt_send(sndpkt)
+    簡單來說多的東西是
+        1.創packet時增加checksum和error detection 
+        2.多了等待feedback
+        3.NAK/error detected就retransmit
+receiving side步驟 
+    wait for packet: 等sender送data
+    packet check: 收到packet以後檢查是否corrupted
+        corrupted: 送NAK , NAK由 make_pkt(NAK) + udt_send(sndpkt)組成
+        not corrupted: extract data然後往上層送 extract(data) + deliver_data
+    ACK sending: 正確收到時要送ACK回去sender make_pkt(ACK) + udt_send(sndpkt)
+rdt2.0的重點
+    1.error detection: 用checksum達到bit error detect 
+    2.feedback mechanism: 用ACK/NAK代表成功/失敗
+    3.reliable transfer: 會retransmit corrupted packets 
+
+
+rdt2.1  (比2.0多了sequence number)
+sender改變的地方是packet create用到sequence number
+    Sequence numbers: 用alternating sequence numbers
+        不同的訊息會以0101這樣交錯的sequence number作編號
+        如果發現收到的編號和當前的state相同就代表 收到的是retransmit的packet
+            stop-and-wait可以確保不會誤判
+    Packet creation and transmission:比2.0多了seq_num
+        packet creation: packet創造時包括sequence number, data, checksum 
+            make_pkt(seq_num, data, checksum)
+        transmission: 送packet到receiver =>  udt_send(sndpkt)
+    State transitions
+        two main states: sequence number 0/1
+        送完packet 0以後wait for ACK/NAK 0
+        送完packet 1以後wait for ACK/NAK 1
+    ACK/NAK handling
+        ACK received & not corrupted => 成功收到 =>轉到next state
+        NAK or corrupted ACK/NAK => 失敗 =>sender retransmit
+    sender重點
+        1.Unique ID: 用sequence number identify packet and duplicates
+        2.Error handling: retransmit on NAK or corruption 
+        3.Reliability: Sequence number確保reliable, duplicate-free 
+
+receiver改變的地方是sequence number和state transitions
+    Sequence numbers: receiver利用alternating sequence numbers 0/1
+        來區分new data或duplicate
+    State transistions: 在收到與當前state相同的sequence number會switch state 
+        state 0:收到0就會switch到state 1
+        state 1:收到1就會switch到state 0
+    Packet reception and handling: 
+        corrupted packets: receiver detect到error
+        create NAK: make_pkt(NAK, checksum)
+        NAK transmission: 送NAK回去給sender  udt_send(sndpkt)        
+    收到正確sequence的步驟
+        檢查packet和sequence 包括no corruption和correct sequence
+        data extraction =>  extract(rcvpkt, data)
+        Data delivery: 送data到application layer =>  deliver_data(data)
+        ACK transmission: 送ACK到sender => make_pkt(ACK, checksum) udt_send(sndpkt)
+        sequence update: switch到下一個sequence
+    收到錯誤sequence的步驟
+        duplicate sequence: resend previous ACK 
+        prevent duplicate delivery: 沒有duplicate data送到apllication layer
+    結論
+        1.error detection: checksum, ACK, NAK
+        2.duplication prevention: alternative sequence number 
+        3.reliability: 只會送new correct data到application layer
+
+rdt2.2 (多了NAK free)
+Sender端
+    sequence number: 用交替的0/1去分別new/duplicate packets
+    state transition: 4個state在做輪替
+        wait for call 0: 準備sequence number 0的packet
+        wait for ACK 0: 送完0以後等0的ACK
+        wait for call 1: 準備sequence number 1的packet
+        wait for ACK 1: 送完1以後等1的ACK
+    packet creation and transmission 
+        從上層receive data: rdt_send(data)創造data reception 
+        create packet: 包含make_pkt(seq_num, data, checksum)
+        send packet: 送packet到receiver  udt_send(sndpkt)
+    ACK handling
+        如果ACK有效且sequence number正確就會移到next state,換下一個sequence num
+        corrupted/incorrect ACK就retransmit
+    結論
+        1.NAK-free error handling: 只用有sequence number的ACK 沒有NAK
+        2.Reliability: sequence number防止duplicate 確保reliability
+        3.efficiency: 用ACK only來簡化protocol 
+    sender端基本上和2.1的版本相同
+
+receiver端
+    Sequence number: receiver一樣是用alternating的01 
+    state transitions: state1收到1後轉0  state0收到0後轉1
+    order processing: alternative state是為了確保order正確
+    packet reception and handling:
+        corrupted / duplicate packet:送和上一個sequence number相同的ACK回去sender
+            表示收到上一個了但還在等新的packet
+    correct packet with expected sequence:
+        data extraction: 收到data以後傳到application layer 
+        send ACK: 回傳給sender對應sequence number的ACK 
+        state switch: 收到正確的sequence number時轉到next state 
+    其實和rdt2.1的核心邏輯相同 變化的只有receiver回傳給sender時
+        從原本用ACK/NAK變成用1/0的ACK來respond
+    結論
+        1.NAK-free error handling: ACK加上sequence number來代替ACK/NAK
+        2.duplication prevention: sequence number確保不會duplicate
+        3.reliability: alternating sequence number和checksum
+
+rdt3.0 (Alternating-bit protocol) 包含sequence number, timers, ACK
+    sequence numbers: 一樣是alternating 0/1來分new或duplicate packet
+    timers: timeout(時間內沒收到ACK)的話會retransmit
+    Acknowledgements: 藉由matching sequence number來確認成功
+    a)如果沒有loss的情況下步驟
+        1. sender送pkt0到receiver
+        2. receiver收到pkt0以後回傳ACK0回去sender
+        3. sender收到ACK0以後送pkt1給receiver 
+        以此類推 一直循環下去
+    b)有loss packet的情況下(沒能傳到receiver)步驟
+        1. sender要送pkt0到receiver 但途中loss掉了
+        2. sender的timer時間超過(timeout) 
+        3. sender重新送一次pkt0
+    c)loss acknowledgment (receiver回傳的ACK loss掉)的步驟
+        1. sender送pkt0到receiver
+        2. reciever收到以後要傳ACK0回去給sender 但中途Loss掉了
+        3. sender的timer timeout 重新傳一次pkt0到receiver
+        4. receiver雖然收到第二次pkt0但仍可以用sequence number知道這是duplicate
+        5. receiver回傳ACK0回去sender
+    d)premature timeout 都有傳送成功但時間花太長 超過timer導致sender重傳
+        1. sender送pkt0到receiver 
+        2. receiver回傳ACK0給sender 但時間花太長 超過sender timer
+        3. sender timeout然後重傳pkt0去給receiver
+        4. sender 收到ACK0了 就繼續傳pkt1
+        5. receiver和sender雖然可能因此多收到duplicate packet但仍可以
+            透過sequence number去做辨別
+    key observations
+        timeouts: 可以確保reliability但可能造成不必要的retransmit
+        duplicate handling: 利用sequence number分辨duplicate或new packet
+        loss recovery: protocol確保packet和acknowledgement loss
+
+rdt3.0 stop-and-wait的機制會限制sender的utilization 尤其在高速網路下限制會更明顯
+這裡在想怎麼解決stop-and-wait導致的速度限制 
+    (3.0本身是stop and wait 這裡只是想怎麼去改善)
+解決方法:pipeline  想要在等待ACK的同時也能繼續傳送一些packets
+pipelining consequences
+    1.增加sequence number: 增加更多的unique sequence number
+    2.buffering requirements: 讓sender和receiver做buffer packets 
+    3.error recovery method: 增加錯誤恢復機制 主要適用Go-Back-N和Selective Repeat 
+a) stop-and-wait protocol
+    Operation: 每次傳送完1個packet就要wait ACK 
+    Sequential: 一次只有一個packet在傳送 就會是sequential的
+    Low efficiency: 尤其在長距離下 因為傳送時間長 效率會很低
+    reliability: 很簡單達到reliability但效率問題大
+    比較會用在short distance會兩者low latency的情況
+b) Pipelined protocol
+    Operation: 可以送multiple packet 不需要等ACK才能送下一個
+    efficiency: 利用simultaneous packet transmit達到最大化網路的使用
+    throughput: 藉由減少idle time來提高throughput 
+    complexity: 可能需要額外的error handling (ex: sliding window)
+    用在high-latency或throughput需要很高的connections
+簡單來說stop-and-wait同一時間只能1 packet, 簡單但效率差
+    pipeline可以multiple packet, 效率好但複雜
+pipeline過程
+    sender可以送一定的multiple packet到receiver 不需要等ACK 
+    receiver對每個收到的packet分別回傳ACK給sender 
+    這是continuous packet flow 
+    efficiency: 最大化了bandwidth, 減少idle time, 提高throughput, 適合長距離
+
+Go-Back-N(GBN)
+    concept: 讓sender可以transmit multiple packets 
+        用一個window size N去限制不須等ACK的情況下可以傳的最大的packet數
+        sender會去maintain一個sliding window表示要送的東西
+    sequence number range
+    這裡的base是指當下window的起始位置 nextseqnum是下一個要傳送的 N是window size
+        [0, base-1]: 已經處理完的(已經送出過且收到ACK的)
+        [base, nextseqnum-1]: 已經送完在等待ACK的
+        [nextseqnum, base+N-1]: 已經排到在window裡馬上就要送出去的
+        [base+N, 無限]: 還在排隊等待進入window
+    ex: 假設window size N = 3 當下的sliding window [3,4,5] 會傳送345到receiver
+        當收到3的ACK window就會往後移動到[4,5,6]
+        在還沒收到3的ACK以前收到4或5的ACK會無視掉 window也不會往後移
+GBN sender:
+    invocation from above: window沒有full的情況下送packet 滿的話wait
+    receipt of ACK: cumulative(累計的) acknowledgment讓window往後slide
+    timeout:timeout時會重送所有window內的unacknowledged packet
+GBN receiver:
+    in-order packet received:拿到正確順序的packet就送ACK並把data往upper layer送
+    out-of-order packet received: 丟棄掉packet並重送last-in-order packet    
+        這裡的last-in-order是上一個有效傳送的packet
+        假設window [3,4,5] 當收到4或5但還沒收到3就會傳2的ACK給sender
+sliding window讓sender可以用cumulative ACK來forward window size 
+Design simplicity: receiver捨棄掉所有out-of-order packet來避免buffer的
+    複雜度 但可能有比較多的retransmission
+protocol characteristics: 用sequence number, cumulative ACK, checksum和timer
+    類似TCP達到 reliable data transfer的方式
+從packet的角度來看 usable代表在window內, not usable代表不在window內
+    會用mark的方式表示packet已經ACK => "Already ACK'd"
+    記得retransmission是從base開始把window內的東西全部重傳
+Sender最大部分的時間會在wait state
+    少部分時間在sending data, receiving ACK, handling timeout 
+從演算法的角度看
+    if nextseqnum < base + N 會繼續往下一個packet處理
+    if base == nextseqnum 會開始計時timer  //timer只會對base做 後面的不管
+    if nextseqnum = base + N 會拒絕新的data直到window往後slide
+    收到ACK的部分 收到base的ACK就會把window往後slide 重製timer 
+    sender判斷要不要送是算nextseqnum在不在window size的範圍
+Receiver大部分時間也是在wait 少數時間接收incoming packet 
+    收到packet  => rdt_rcv(rcvpkt)
+    檢查notcorrupt(rcvpkt)和hasseqnum(rcvpkt, expectedseqnum)
+    extract(rcvpkt, data)
+    deliver_data(data) 傳到上層
+    sndpkt = make_pkt(expectedseqnum, ACK, checksum) 製作ACK
+    udt_send(sndpkt) 回傳ACK給sender
+    expectedseqnum++; 增加seqnum
+    收到錯誤seqnum的packet就回傳最後一個有效的ACK
+        這個動作會保證sender知道receiver收到哪了
+結論
+    retransmission: lost packet會在timeout後retransmit
+    order enforcement: 
+        receiver一定會照順序接收packet
+        out of order的packet會被discard
+        last ACK代表required packet 
+    Reliability: 確保了sequential delivery但會造成redundant retransmission 
+
+Selective Repeat (SR) 選擇性重傳 
+先gpt
+    特點是可以允許失序(out of order packet)到達 
+    只retransmit真正loss或corrupted的packet 不像GBN那樣整個window重傳
+    sender和receiver都有window
+        sender的window和GBN概念差不多
+        receiver的window用來緩存那些out of order但正確的packet
+    sender:
+        窗口內可以自由發送多個packet 不需要等待其他packet
+        每個packet都有一個自己的timer 自己timeout了才retransmit 
+    receiver:
+        可以接受out of order的packet 會根據seqnum來儲存
+        當在order上的packet抵達以後才會把緩存的數據交到上層
+        接收端對每個成功收到的packet送ACK
+
+回到ppt 先聊GBN(Go-Back-N)的問題
+    window size和bandwidth-delay很大 效率會因此降低很多
+    單一的packet loss就可能導致全部retransmit
+    channel error多的時候效率降低更明顯
+Selective Repeat (SR) protocol
+    improved efficiency: 只會retransmit lost或corrupted的packet 避免不必要的retransmit
+    acknowledgment requirements: 每個packet是獨立ACK的
+        receiver可以buffer out-of-order　packet 當前面in-order的東西到了再拿出來用
+    window size management:　sender一樣window size限制N 由ACK讓他往後slide
+    sender的每個packet只會收到1個ACK 不像GBN同一個packet可能會重複收
+
+SR sender:
+    一樣有window  sender會去檢查next seqnum是否在window裡面
+        如果在window內: packetize並送data 可以想成是已經排隊進入了window
+        不在window內: 還在排隊等待進入window 可能會先被buffer或回傳到upper layer 
+    timout: 每個packet都有自己的logical timer去處理lost packet 
+        一個簡單的hardware timer可以emulate(模擬)多個logical timers 
+    ACK received: 用mark的方式去標示window內已經收到ACK的packet
+        如果收到base的ACK就會往後slide到第一個還沒被ACK的seqnum 
+        slide後新進入window的packet會被傳送
+
+SR receiver:
+    把收到的packet的可能分三部分聊
+    packet in [rcv_base, rcv_base+N-1]: 在window內
+        送selective ACK到sender
+        如果不是in order抵達, out of order的packet會buffer存起來
+        如果是in order(seqnum = base) 會把從base開始連續已經有存的data送到上層
+    packet in [rcv_base-N, rcv_base-1]: 在window外往前推N個packet
+        如果又收到他們的話 會再傳一次對應的ACK回去 確保sender知道receiver的情況
+    packet out of range: 不在這個範圍 不在base-n到base+n-1的話會無視
+    ex: N=3 window=[5,6,7] 那會傳送ACK回去的範圍是2,3,4,5,6,7
+        假設收到2就回傳2的ACK ， 假設收到5就回傳5並處理data到upper layer然後移動window
+        假設收到6就會buffer儲存起來 等5到的時候一起送
+Key featrues:
+    1.independent acknowledgments: 每個packet會分開ACK 避免不必要的retransmission
+    2.buffering out-of-order packets: 收到out-of-order的packet會先buffer 等到前面
+        seqnum的packet都收到了再拿來用
+    3.window sliding: 當in-order packet收到以後window會forward 讓新進的packet可以送
+    4.efficient retransmission: 只有loss的packet會retransmit 最小化浪費
+    
+Synchronization issues in SR 
+    sender-receiver views: sender和receiver的window可能會不同步 因為傳送ACK需要時間
+        也可能會loss掉
+    reacknowlegment importance: 已經送過ACK的packet還是需要有reacknowledge的機制
+        確保sender的window advance (window往前slide)
+        如果沒有這種機制當base的ACK沒收到時sender會再retransmit 但receiver沒辦法回ACK
+    如果使用cyclic的sequence number在window size太大時可能會導致無法分辨是新的或舊的packet
+Window size constraints: window size不能超過sequence number space的一半
+    WS<= 1/2(seq.no.space) 這樣就確保可以區分new或retransmitted packet
+Handling packet reordering: 
+    channel behavior: network可以reorder packet或造成duplicate 尤其seqnum有限的時候
+    mitigation(緩解/減輕) techniques:
+        設置一個maximum packet lifetime表示seqnum可以被reuse至少需要等多久
+            可以避免older packet和new transmission搞混
+        TCP傳送封包時可能會用不同路徑的傳輸會造成packet reordering的問題
+            有TTL去規範超過一定時間會被丟棄
+reliable data transfer的結論
+    checksum: 用來detect packet內的bit error 
+    timer: timeout時retransmit lost packet 用來處理delayed packet和lost ACK 
+        但可能造成duplicate packet 
+    sequence number: 用編號來維持sequential  detect lost, duplicate packet 
+        gaps in sequence就是lost packet 
+    Acknowledgment(ACK): 提醒sender packet已經被correctly received 
+    Negative Acknowledgment(NAK): 提醒sender packet有錯
+    Window and pipelining: 限制sender送packet只能在一定的sequence number range內 
+        允許multiple packet before ACK可以提高utilization
+        window size取決於receiver capacity和network congestion
+
+--------------------------------------------------------------------
+
+3.5 Connection-oriented transport: TCP
+
+TCP是transport-layer, connection-oriented, reliable protocol 
+特色是based on reliable data transfer principles
+    1.error detection 2.retransmission 3.cumulative ACK 4.timer 5.sequence/ACK
+
+TCP connection 
+connection establishment:
+    connection-oriented design: 
+        TCP用three-way handshake來建立connection
+        在handshake的期間就會設好state variables和buffer
+    Three-way handshake:
+        step 1: client送initial TCP segment
+        step 2: server回應second segment 
+        step 3: client用third segment acknowledges 
+        前面兩個segment沒有payload 第三個segment可能包含data(payload)
+        簡單來說就是用三步來確認setting 其中3rd segment可以在payload放data
+            來傳輸一部分data ， 也可以不要放 等整個通訊設定完成再開始data transfer 
+
+TCP connection properties:
+    logical connection: 
+        是針對end systems之間的connection state 不管router或switch之間
+        router會以stateless IP datagram處理TCP data 
+    full-duplex和point to point:
+        data flow是sender和receiver之間雙向傳輸的
+        沒有支援multicasting(1對多廣播)
+    data transmission:
+        data handling: app data會送到TCP的send buffer 切成segment再送到network layer
+        segment會被包裝進IP datagrams
+    Maximum Segment Size(MSS): 
+        定義了每個segment最大的payload
+        確保segment可以符合link layer的規定(Maximum Transmission Unit (MTU) )
+        MSS vs MTU:
+            MTU指的是整個packet (TCP segment + header)
+            MSS只有TCP payload 
+            MSS = MTU - TCP header size - IP header size
+    Buffer management: 
+        每個connection的end都會maintain send和receive buffer 
+        receive buffer的data由application去read 
+TCP send and receive buffers:
+    sender side的Process會寫data到TCP send buffer 
+        application process: 寫data到socket
+        TCP send buffer: 
+            在segment他送到network layer之前 暫時儲存data
+            確保data如果需要retransmit時可以拿來用
+        Semgents: 從buffer切出來的manageable TCP segment傳送出去
+    TCP segments traverse the network:
+        Transmission: TCP segment會被包裝成IP packet再送出去 
+        每個segment再傳輸過去都可能會delay loss reordering 
+    TCP receive buffer at the receiver side: 
+        receive buffer:
+            暫時儲存送來的segment等待application去read
+            如果送來的順序不對就要做reordering
+            wait data 確保reliable delivery
+        application process read data: 
+            從buffer利用socket interface來read data 
+key characteristics: 
+    effeciency: TCP會決定什麼時候送buffered data 讓tranmssion scheduling更彈性
+    end-to-end state: 只有end需要去maintain state information 路徑上的router不需要
+重點: TCP在transport layer 管理end之間通訊 會先three-way handshake建立通訊 
+        sender的application放data到send buffer，send buffer內的data被切成segment送到
+        network layer用ip protocol做傳送 送到receiver端以後 因為這些segment順序可能會錯
+        receive buffer內會先確保正確和reordering 再等待被application read 
+
+TCP Segment Structure
+TCP segment包含
+    Header: 一些control和metadata 
+    Data feild: application data 由MSS限制
+        ex: large file, interactive applications
+先聊header的部分
+1.source port(16 bits): 用來identify sender的app 
+2.destination port(16 bits): 用來identify receiver的app
+3.sequence number(32 bits): 用來表示data是從哪裡開始 (通常是由transmission的start開始算)
+    意思是一段訊息被拆成多個segment seqnum可能就會是100 1100 2100這樣
+    不一定會從0開始 固定從0開始的是相對序列號(relative sequence number)
+4.Acknowledgment number(32 bits): 期望下一個segment的第一個byte位置
+    也就是期望下一個segment的sequence number 
+5.header length(4 bits): 32-bit word下TCP header的大小
+6.flags(每個flag 1 bit):  總共8個flag (8bit)
+    CWR(Congestion Window Reduced): 用來標示congestion control相關的東西
+    ECE(Explicit Congestion Notfication Echo): 表示receiver是ECN-capable 
+    URG(Urgent): 用urgent pointer field去處理urgent(緊急的) data
+    ACK(Acknowledgment): 確認acknowledgment number是valid的
+    PSH(Push): 要receiver不管怎樣就是要直接把data送到application
+    RST(Reset): reset connection 
+    SYN(Synchronize): 用來開啟connection和同步sequence number 
+    FIN(Finish): sender告訴receiver已經送完data了 要關閉connection了
+7.receive window(16 bits): 表示receiver的buffer size 也就是sender可以送多少bytes 
+8.internet checksum(16 bits): 用來驗證TCP header和payload的完整性
+9.urgent pointer(16 bits): 如果URG flag is set就會在這裡指到urgent data的位置 
+10.options(大小不一定): 選擇性的parameter
+    ex:Maximum Segment Size(MSS), selective ACK, timestamp
+
+Sequence numbers and acknowledgment numbers 
+sequence numbers: 表示segment裡的first byte
+    TCP會把data當作ordered stream of byte 
+    ex: 一個data stream從byte 0開始 MSS=1000
+        1st segment: sequence number=0
+        2nd segment: sequence number=1000
+        3rd segment: sequence number=2000
+Acknowledgment numbers: 表示receiver下一個應該要收到的byte 
+    ACK是cumulative的
+    ex: host A收到byte 0-535 下一個期望收到的就是536 ACK number=536
+        假設送來一個536-899但lost了 下一個期望的就還是536不會變
+Handling out-of-order segments:
+    兩個解決方向1.discard out-of-order segment 2.retain保留到前面order都到了再拿出來用
+    TCP implementation: RFC沒有嚴格限制要哪一種方式 可以由devloper自己選擇
+initial sequence number: 由兩端host隨機選擇 避免misinterpreting
+
+case study    
+    Telnet是一種app層的protocol 用來遠端登入 可以在遠端操作另一台電腦 定義在RFC中
+    缺點是沒有加密 通常會用SSH代替Telnet 
+    piggybacking: acknowledgments可以和data segment放在一起增加效率
+    empty data segments: TCP segment就算沒有data依樣要有seqence number維持protocol的規則
+        假設sender初始是1000 receiver初始是2000 要建立通訊
+        1st segment sender seq=1000 ACK=2001
+        2nd segment receiver seq=2001 ACK=1001
+        3rd segment sender seq=1001 ACK=2002  完成3次握手
+
+Round-Trip Time Estimation and Timeout 
+    TCP Timeout/retransmit mechanism: TCP用timeout的retransmit機制處理lost segment 
+    Key issues in implementation:
+        Timeout interval length:
+            timeout設定一定要超過RTT 設定洽當的時間可以避免unnecessary retransmission 
+        determining the timeout:
+            timeout的設定和RTT的關係 該怎麼設計是個challenge 
+        RTT estimation: 
+            有一個精確的方式去估計RTT很重要
+        timer management:
+            是否要對每個還沒ACK的segment做timer是一個考量
+Estimating RTT(round trip time)
+SampleRTT measurement: 
+    definition: 送一個segment並收到ACK需要的時間
+    Implementation: 每隔一個RTT time去測一個RTT 
+    restriction: 要注意不要去計算retransmit的segment
+fluctuations in SampleRTT:
+    sampleRTT可能會因為network congestion或system load有變動 取average是不錯的選擇
+EstimatedRTT calculation
+    formula: Estimated RTT= (1-a)*EstimatedRTT + a*SampleRTT 
+        過往的平均(通常比較重要)和現在的狀況各占一部分 通常a=0.125 (1/8) 
+    weighted average: 越recent的SampleRTT比重會越重 更接近current的網路狀況
+        目前的佔了a 過往的會指數性的變得不重要因為一直乘上(1-a)
+    statistical context: 
+        Exponential Weighted Moving Average(EWMA)意思是weight會隨時間指數下降
+RTT variability (DevRTT): 這裡是想算RTT的波動性
+    從estimatedRTT去算出SampleRTT的波動性
+    DevRTT=(1–β)×DevRTT+β×∣SampleRTT–EstimatedRTT      β通常=0.25
+    DevRTT越大表示波動性越大
+
+setting and managing the retransmission timeout interval 
+    timeout interval的目的: 確保需要retransmission時會重傳 同時避免不必要的重傳
+    要考慮的點:
+        lower bound: 至少要等於estimated RTT來避免premature(過早)的retransmission
+        upeer bound: 避免過大導致excessive delay 效率卡在等retransmission 
+        margin: 根據DevRTT做adjust(調整) 根據RTT的波動性調整
+    formula: TimeoutInterval = EstimatedRTT + 4*DevRTT 
+    initial value 通常從1second開始
+    timeout adjustment:
+        after timeout: timeout interval會加倍 避免premature(過早) timeout
+        after update: 每當ACK和estimatedRTT被更新就會用formula去重新計算
+        意思是只要timeout發生就加倍interval 只要有收到ACK了就重新計算 找到適合的值
+
+Reliable Data transfer 
+    IP service characteristics:
+        IP is unreliable:不保證 datagram, in-order, integrity 
+    Datagram issues: 
+        可能因為buffer overflow而lost
+        可能會out of order 
+        可能會corrupt
+    transport layer因為在IP底下所以會再繼承這些問題
+TCP's reliable data transfer:
+    Provides a reliable service on top of IP:
+        確保uncorrupted, gap-free, duplicate-free, in-order的byte stream 
+        match到sender的byte stream 
+    透過retransmission和acknowledgment達到reliability
+Timer management in TCP:
+    Conceptual approach: 每一個unACK segment都有一個timer
+    Practical approach: 單一個retransmission timer 比較有效率
+Simplified TCP sender operation(A要送large file給B)
+    3個主要步驟
+    1.Data received from application:
+        把data裝成segments
+        assign sequence number(byte stream based)
+        如果沒東西在跑了就開始retransmission timer 
+    2.Timer timeout:
+        retransmit最老的沒被驗證的segment (oldest unACK segment)
+        restart timer 
+        用EstimatedRTT和DevRTT決定timeout interval
+        timer是針對oldest unACK segment的
+    3.Acknowledgment receipt(ACK): 
+        比較ACK value y和SendBase(oldest unACK byte)
+        如果y > Sendbase 就更新SendBase
+        如果還有unACK segment就Restart timer
+        //這裡就是如果收到不是base的ack就代表還在傳 就重新計時，如果收到base的ack
+            這個timer就沒用了 換去處理下一個ACK
+        //ACK更像是receiver在說我已經收到哪裡了 所以假設送了兩個segment 但回來的ACK
+            前面那個ACK loss了 有收到後面那個就會知道前面那個沒問題 就不需要重傳一次前面的
+Doubling the timeout interval: 這裡在講每次重傳加倍interval的原因/意義
+    Timeout interval modification:
+        Behavior after timer expiration:
+            TCP只會重傳oldest unACK segment(最小sequence number的)
+            每次retransmit後都會加倍timeout interval 
+    timeout reset for non-timeout events:
+        每當收到了new data就會用EstimatedRTT和DevRTT重新計算timeout interval 
+    Congestion control implications:
+        Purpose: exponential backoff幫助mitigate(緩解) network congestion
+        congestion cause: congestion 因為router queue overload導致packet drop/delay
+        polite behavior: 避免congesion下還一直重傳 可能造成問題更嚴重
+    Relevance to other protocols:  其他porotocol也會有這種exponential backoff的機制
+        像是CSMA/CD用來處理collision
+Fast retransmit:
+    timeout-trigger retransmission的問題:
+        1.Long timeout periods: 延遲resending 增加end-to-end delay 
+        2.Improved detection via duplicate ACKs: sender可以在timeout前偵測到loss
+            ex: sender送出1 2 3 4.... 但2loss掉了
+                這樣傳回來的ACK會有很多是ACK=2 當sender收到很多重複的(duplicate) ACK
+                就可以知道大概率是loss了 就可以提早重傳
+    Understanding duplicate ACKs 
+        Definition: 已經收過的ACK又被重新傳來
+        duplicate ACK會產生的原因: receiver偵測到gap (可能是lost或reorder segment)
+            receiver就會選擇回傳下一個想要的ACK
+        Receiver's policy: reciever部會丟掉out-of-order segments 之後再reorder就好
+
+TCP ACK generation的建議
+    如果傳來的segment sequence number都是in order的就會建議用delayed ACK的方法
+    delayed ACK: 保存多個ACK一起送出 就不需要每來一個就送一個 
+        每次有in order的送來就等500ms看下一個有沒有來
+        如果沒來再把目前的一起送出 
+        ex: receiver收到2 原本就會直接傳ack=3到sender 但delayed ack會等一下
+            可能等到了3傳來 就會繼續等看看4有沒有來 最後沒來
+            就變成只需要傳ack=4就可以了 省下一個多的ack傳送
+    In order segment waiting: 這是講當receiver有多個in-order segment
+        可以把這些segment合併成一個傳送就可以 收到2 3 4 就只要傳ack=5就好
+    out-of-order segment: out of order代表有gap
+        當傳來了一個out-of-order segment就會立刻傳上一個ack
+        ex: 原本再等4 也就是之前傳了ACK=4 結果傳來5 6 就會立刻再傳一個ACK=4回去
+            表達我還在等4 這個重傳的ack叫做duplicate ACK 
+    segment fills in gap in received data 
+        收到原本是gap的segment 分為patially/completely fills 
+        不管是哪種fill gap都會立刻回傳當前最佳的ack回去給sender
+
+Fast retransmit mechanism:
+    trigger condition: 當sender收到3個duplicate ACK 
+    action: sender知道有segment大概率loss了 就開始fast retransmit 送ack號碼的segment
+        不管timer是否超時 重傳後會reset timer 
+    Rationale for waiting for three duplicate ACKs:
+        避免過度重傳: 簡單的reordering可能造成single duplicate ACK 
+            如果設置太少(<3)可能會導致不必要的重傳太多
+        more reliable indication: 通常3個以上的duplicate就高機率是loss
+    Evolution of TCP mechanisms: 這裡在講經驗 已經超過30年用這種tcp了 還算穩定 有效率
+Go-Back-N or Selective Repeat?
+    TCP更接近Go-Back-N (GBN)
+        cumulative ACK:
+            ACK會由最近收到 in-order的決定
+            out-of-order的部分不會單獨被ACK
+        tracking variables:
+            sendBase: 最小的unACK sequence number 傳ACK出去會是傳sendBase 
+            NextSeqNum: 下一個byte的sequence number 
+    TCP和GBN的不同:
+        會buffer out-of-order segments: 存起來之後做reordering 
+        Selective retransmission:
+            TCP的retransmit次數比較少 
+                in order的沒來 後面的東西來了也會重製timer讓 retransmit不會直接發生
+            GBN的retransmit是只要第一個沒收到就要重傳window裡全部的segments
+Selective Acknowledgment (SACK) modification:
+    是在TCP上增加SR的性質 TCP的ACK只會表示我到n之前的segment全都收到了
+        SACK讓tcp可以清楚知道哪些是收到的哪些沒收到 就可以避免不必要的重傳
+        在retransmit時skip掉已經ACK的segment 
+TCP categorization: a hybrid protocol        
+    包含了GBN和SR的性質
+        GBN: cumulative ACK 
+        SR: buffering和selective retransmission 
+    TCP的error recovery就是hybrid of GBN/SR 
+
+Flow control: 
+    控制flow有兩個目的
+        1.避免sender送太多東西overflow receiver的buffer 
+        2.match sender的data rate和receiver的read rate 
+和congestion control的差別在congestion control專注在mitigate(緩解) network congestion
+
+receive buffer and variables:
+    receive buffer: 由receiver配置用來暫存data等待reordering
+    Key variables at receiver:
+        LastByteRcvd: 最後收到和放進buffer裡的byte 
+        LastByteRead: 最後被app read的byte
+        Receive Window(rwnd): 代表available buffer space
+        rwnd = RcvBuffer - (LastByteRcvd - LastByteRead) 
+        //buffer剩的空間 = 總空間減掉(總共放了多少-讀出了多少)
+flow control:
+    receiver會在receive window Advertises(標示)rwnd讓sender知道
+    sender要做的就是去track LastByteSent和LastByteAcked
+        然後確保LastByteSent-LastByteAcked <= rwnd 也就是確保receiver還有空間
+            避免buffer overflow 
+
+UDP和TCP flow control的差別 
+    UDP沒有flow contol: buffer overflow會在app read很慢時發生
+        segments很容易會drop in UDP 
+
+TCP connection establishment是three-way handshake 
+    step1: client送SYN到server
+    step2: server回送SYNACK到client
+    step3: client送ACK回去server確認連接
+        這些步驟的大小都是1byte 所以seqnum acknum這些都是+1 
+    重點: 確保雙方準備好通訊, 建立連接需要3個packet, 可以抵抗一些隨機isn的問題
+
+
+
+
+
+
+--------------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+--------------------------------------------------------------------

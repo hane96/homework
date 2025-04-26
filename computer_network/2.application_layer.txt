@@ -1,0 +1,903 @@
+CH2 application layer
+
+2.1 principles of network applications
+
+本節重點: 
+1.network application protocol(HTTP, FTP DNS SMTP等) 這些是網路應用的核心
+2.transport layer的service model 
+( 面向連線connection oriented(TCP), 無連線connectionless(UDP) )
+3.client-server和peer-to-peer paradigms(架構模型) 兩種網路的架構模型
+4.分析內容分發網路(analyze content distribution networks(CDNs)) 
+提高內容的可用性和降低延遲
+5.application-level protocols (HTTP, FTP, SMTP, POP3, IMAP, DNS)
+6.用socket API創建network application
+
+network apps 一些用到網路相關的app
+
+
+Creating a network app
+做給不同end systems用的program
+提供communication across networks (ex:web server, browsers)
+主要會focus在end system而不是network core device所以可以更快的developme app
+
+
+application architectures(應用架構) 設計組織網路應用程序運作的基本框架
+定義程式中不同組件之間互相作用的方式 處理用戶請求 資源分布 數據傳輸方式
+potential application architectures
+1.Client-Server model
+2.Peer-to-Peer (P2P) model
+
+Client-Server Architecture 應用程式分為兩個部分 client和server
+1.Server(伺服器):
+負責處理請求的一方 通常會有應用程式的核心邏輯和資料庫 
+接收client傳來的訊息 回傳結果回去
+    always-on-host: server會一直開著 有一個permanent public IP address
+    scalability: 通常會用data center或server farm增加穩定性
+2.Clients:
+發送請求的一方 用戶的瀏覽器/應用程式向伺服器發送請求 要求獲取資料或服務
+    用戶會和server直接通訊 而不是和其他client直接通訊
+    intermittent connectivity(間歇性的連接): 可能會暫時與網路斷開
+    dynamic private IP address(動態私人IP位置): IP可能會變 ex:192.168.x.x
+    需要DNS或NAT做address mapping
+特點:
+    伺服器是中央控制節點 負責管理資源和服務 負責處理客戶端發送的請求並回應
+    ex: 網頁應用(HTTP協議的網站) 電子郵件服務(SMTP POP3)
+優點:
+    控制集中 方便管理/維護 client端不需要處理複雜的計算=>負擔輕
+缺點:
+    server崩潰或負載過高時可能會系統中斷
+    擴展性較差 伺服器可能會成為性能瓶頸
+
+Note: Data center
+data center house通常會有大量的hosts 甚至上百上千個server
+大部分的internet service依賴於data center
+ex: Google, Amazon, Gmail, Facebook, Twitter
+
+
+Peer-to-Peer (P2P) Architecture
+所有設備都是peer(對等節點) 都可以同時作為client端和server端
+每個peer都能向其他peer請求/接收資源和服務 或回應其他peer的要求
+    no always-on server needed 不需要一個一直開著的server
+    end system之間communicate directly
+    peers both request and provide services
+    self scalability: 當有新的peer加入就會同時enhance service capacity
+因此有自我擴展性(self scalability)
+    peers有間歇性連結(intermittent connection) IP address也會change
+    complex management 沒有中心伺服器 管理起來比較複雜
+特點:
+    沒有單一伺服器 每個節點都是client和server端
+    資源在多個節點之間共享 系統有高度的分散性 ex:檔案共享網路、分散式系統
+優點:
+    高度擴展性 因為資源負載在多個節點
+    系統容錯性高 一個或少數節點壞掉不會導致整個系統崩潰
+缺點:
+    資源管理困難 沒有中央控制
+    節點之間通信延遲和不穩定的可能較高
+
+
+Process: program running on a host
+Process Communication(進程通訊)
+這部分在說process之間如何通訊 分成same-host process(同一主機上的通訊)
+和different-host process(不同主機上的通訊)
+
+Same-host processes用os管理的IPC(inter process communication)通訊
+1.shared memory: 定一個common memory space 速度快 高效 要注意synchronization
+2.message queue: OS管理一個queue 不需要處理synchronization(同時間一個人讀寫)
+速度比較慢
+
+different-host process用message exchange(訊息交換)(透過網路做數據傳輸)
+client process: 主動發起通訊的process 通常是對server發出
+server process: 等待client端請求 收到請求後返回結果
+peer-to-peer(p2p): 同時可以是client和server端的
+
+
+sockets(套接/套接字/插座)
+可以想成是一個door，process在送/接收訊息時需要透過這個門
+process A -> A的socket -> 透過transport layer送訊息 -> B的socket -> process B 
+
+Addressing Process
+identifier(標示符): process都需要一個identifier來receive訊息
+每個host都有一個ip address (IPv4 or IPv6)
+但identifier肯定不能只用ip address來表示
+因為同個host上需要run很多個process
+
+process identifier包含ip address和一個16-bit port number (0-65535)
+port號碼<1000的是預設好常用的application
+ex: HTTP port 80    FTP port 20,21
+    SMTP port 25    DNS port 53
+
+
+App-layer Protocol Defines
+1. message types 訊息類型分為request和response
+2. message syntax 訊息語法 定義訊息結構/如何分隔字段等
+3. message semantics 訊息語義 定義每個字段中訊息的意義 說明每個字段的功能
+4. rules 發送和回應訊息的規則 何時發送訊息 如何回應等
+5. protocol分兩種 
+    open protocol 開放協議 由RFC(Request for Comments)標準定義的 ex:HTTP, SMTP等
+    proprietary protocol 私有協議 公司或個人擁有的通信協議 ex: Skype
+
+
+What transport service does an app need
+1. Data integrity(數據完整性) 對某些應用來說重要 某些不重要
+    重要的像是檔案傳輸(file transfer)、網路交易(web transaction)
+    不重要的像是聲音影片(audio streaming) 掉包就比較沒差
+2. Timing(時效性): low latency(低延遲)對某些應用重要 像遊戲/網路電話
+3. Throughput: multimedia(多媒體應用)為了確保平穩播放 需要minimum throughput
+    elastic app(彈性應用) ex:FTP 可以適用不同網路條件和throughput
+4. security 加密來確保data integrity
+
+
+常見app的service requirement  三個面向data loss / throughput /time sensitive
+檔案傳輸, email, web document 都不能loss / elastic(彈性) / no
+網路電話, 視訊會議(video conferencing)都loss-tolerant(可忍受loss的)
+    video的throughput比audio大一點 timesensitive有
+
+
+Internet transport protocol service 有TCP(更講求穩定)和UDP(講求快速)
+
+TCP(Transmission Control Protocol)
+1.connection-oriented(面向連接): 在data exchange前會先建立一個connection
+    通常是三次握手機制
+2.reliable transport(可靠傳輸): 確保資料無錯還有照順序，如果出錯會重送封包
+3.flow control(流量控制): 防止發送方傳送過多資料 避免資料太多無法處理
+4.Congestion control(壅塞控制): 根據網路狀況調整傳送速率 防止壅塞
+5.Limitations: TCP不會保證timing minimum throughput和security
+    也就是指保證data loss是no loss 其他requirement不一定
+
+UDP(User Datagram Protocol)
+1.Unreliable transport: 不保證delivery, order, duplication(亂序) prevention
+    不保證送到的順序、完整性 可能會丟包 重複 亂序
+2.no flow or congestion control: 沒有流量和壅塞控制，可以想成是為了快速傳輸
+    用更簡單的傳輸 而不去在意可靠性、時間性、throughput等等 (no guarantees)
+    不會根據網路情況調整速度
+更適合low-latency app (ex:DNS Domain Name System)
+
+根據需求選擇要哪一種(TCP, UDP)
+EX:
+electronic mail, remote terminal access, web, file transfer 都用TCP
+streaming multimedia, internet telephony 用TCP UDP都可以
+
+
+Securing TCP
+
+no encrption: TCP和UDP都不會做加密 傳輸的訊息都是明文送的
+security risk: 傳輸中的資訊容易被攔截或竄改
+所以需要透過SSL(Secure Sockets Layer)
+
+SSL (Secure Sockets Layer)
+對TCP的communication做加密
+可以確保data integrity => prevent tampering(竄改) 避免data被竄改
+end-point authentication(終端身分驗證) 對通信雙方的身分做驗證
+application可以用SSL libraries達到安全的通訊
+SSL和TCP direct communication(直接通訊)來提供加密服務
+SSL socket API 在把data做傳輸前先加密
+
+
+--------------------------------------------------------------------
+
+2.2 Web and HTTP
+
+一個web page包含一個base HTML file和很多objects(ex: images, scripts)
+
+URL(Uniform Resource Locator) 用來檢索(retrieve) base HTML和相關物件
+URL由一些不同的部分構成
+1.Protocol (ex: HTTPS)
+2.Subdomain (ex: www)
+3.Domain name (ex: xxx.com)
+4.path/page (ex: /abc/defg)
+
+HTML(HyperText Markup Language) file: 定義網頁的結構
+瀏覽器會讀取HTML檔 加載顯示網頁的內容
+
+ex: https://chatgpt.com/c/670f647c-c0bc-8008-9f3d-f64b6611610d
+protocol: https ， domain: chatgpt.com ， path/page: /c/670f647c-c0bc-8008-9f3d-f64b6611610d
+沒有subdomain (url不一定要有subdomain)
+
+HTTP(Hypertext Transfer Protocol) Overview
+HTTP是一個網路上資料交換(特別是網頁web用)的協議
+Client-server model
+    client端 通常是瀏覽器(browser) request和display web object
+    server端 送web object回去給client端
+
+how does HTTP use TCP?
+client端 browser在請求網頁時 會啟動一個TCP connection
+    連接到server 通常是用port 80
+server端 接受連接以後client和server端交換HTTP message
+TCP connection在結束message exchange後就會關閉
+
+HTTP is stateless protocol: server不會保留前面client的request
+每次的connection都是獨立的
+<比較> stateful protocol => 會儲存past states 但如果crash了
+    inconsistent(不一致的) states require reconciliation(和解)
+
+
+HTTP Connections
+
+Non-persistent HTTP(非持久性HTTP)
+    一個TCP connection只傳一個object 傳完就會關掉 (one object per connection)
+    一個網頁如果需要多個物件 就會每個物件一個新連接 (multiple connections)
+    version: HTTP 1.0(RFC 1945)
+    缺點: 效率低 多個物件就需要一直建立/關閉連接 導致延遲增加
+Persistent HTTP
+    一個TCP connection可以傳多個物件
+    version: HTTP 1.1(RFC 2616)
+SPDY 
+    Google開發的改進HTTP性能的protocol 2009年
+    1.Multiplexing: 允許多個請求/回應同時通過單個連接 避免堵塞
+    2.Header Compression: 對HTTP的header做壓縮減少傳輸量
+    3.Prioritization: 可以有優先序 優先處理重要的請求
+    4.mandatory(強制) encryption: 所有連接都加密 提高安全性
+    是HTTP/2的基礎 2015年被標準化
+QUIC
+    google基於UDP改建的protocol  2013年
+    1.stream multiplexing: 單個連接可以有data flow通過
+    2.Pre-stream flow control: 每個data flow有自己的流量控制 避免過載
+    3.Low-latency connection setup: 減少握手過程中的延遲 更快建立connection
+    4.better error recovery: 改善錯誤回復的機制
+    是HTTP/3的基礎
+
+
+Non-persistent HTTP 運作流程
+1.TCP connection initiation(step 1a, 1b)
+    1a: client端對server端的port 80 initiate一個TCP connection
+    1b: server端acknowledges(承認)/accept後 establish(建立) connection
+    ex: www.someSchool.edu
+2.HTTP request(step 2)
+    client端送HTTP request給server端要求指定的resource
+    ex: someDepartment/home.index
+3.Server response(step 3)
+    server端接收到request後回傳resource (ex: HTML page)
+    TCP connection在結束後會關閉
+4.Subsequent requests(step 4-6)
+    client端創新的TCP connection給每個additional resource(ex: images)
+    process會對每個resource重複做
+        1.new connection 2.request 3.response 4.connection closure
+    這裡的第4步是關閉connection 第5步是client收到資源以後繼續看還需要多少資源
+    第6步是重複step 1-5 for每一個額外需要的object
+
+Response time
+RTT(Round Trip Time): packet從client端送到server再回來client的時間
+HTTP response time: 建立TCP連接需要一個RTT (來回) //一個建連接
+    HTTP request + initial respond 需要一個RTT   //一個請求+回應 (一個resource)
+所以Non-persistent HTTP的response time = 2 RTTs + file transmission time
+
+
+比較non-persistent HTTP會有一些問題
+    1. 需要2RTTs per object 因為每個物件都要建新連接
+    2. os對每個新物件都要處理 => 負擔大
+    3. browser可能會開parallel connections來一次要多個物件
+Persistent HTTP
+    對subsequent request只需要開著一個connection 效率增加
+    建立時只需要一個RTT就可以傳送所有物件
+    對non persistent來說每個物件都要2個RTT(建立和傳送)
+    對persistent就只有第1個物件需要2RTT 後面物件的連接建好了就只需要1RTT(傳送)
+
+two types of HTTP message
+    request: client送到server要求resource
+    response: 從server送回給client 包含resource和錯誤訊息
+
+HTTP request message適用ASCII format 是readble的(人可以讀)
+Request line (請求的部分由這些構成):
+    HTTP Method 定義操作的請求 (ex: GET獲取資源, POST提交數據, HEAD獲得header)
+    Requested resource 請求的資源 (ex: /index.html)
+    HTTP version (ex: HTTP/1.1)
+    每行會以\r(carriage return)\n(line-feed)結束
+Header lines 標頭行 提供額外的請求訊息
+    給request的一些額外訊息(additional information) (ex:Host, user-agent, language)
+    一樣每行會用\r\n結束
+    header的end會多用一個\r\n標示
+
+General Form of HTTP request message 主要由4個部分構成
+1)Request line 請求由三個部分構成
+    1.method 決定type of request (GET請求資源, POST傳送資源, DELETE請求刪除資源)
+    2.URL(Uniform Resource Locator) 指定想要的resource (ex: /index.html)
+    3.version HTTP的版本 (ex: HTTP/1.1)
+    結束用\r\n
+2)Header lines
+    1.header field name (ex:Host, user-agent)
+    2.space(sp) 用來分隔名稱和對應的值
+    3.value 這裡放field name的值 ex:如果前面field name選Host 
+        這裡就是指定host name是什麼(ex:wwwnet.cs.umass.edu)
+    結尾一樣\r\n
+3)Blank line 空白行
+    用來標示header line的結束 通常是用CR/LF sequence
+4)Entity body 實體主體
+    不一定會有entity body 看HTTP method需求決定
+    對於需要送data給server的request 像是POST就會有
+    用來放input data
+
+Uploading Form input
+POST method 用來uploading form data給server (可以是表單 帳密 文件 圖片 搜尋引勤等)
+    input data會放在entity body
+    在URL中data是invisible的
+    ex: POST /login HTTP/1.1
+
+GET method 是form input已經包含在URL裡的時候用的
+    input is appended(附加) to URL as a query(詢問) string
+    search term在URL中是visible的
+    ex: GET /search?query=bananas HTTP/1.1
+
+//
+get是從server端獲取資源
+post是把數據交到server端  //post通常是表單類的資料
+put是上傳或更新資源       //put通常用於完整的資源替換
+delete是刪除server上的資源
+head是返回http header不返回主體
+options 查詢server支援的method
+//
+
+Method types
+HTTP/1.0包含GET POST HEAD //1.0還是non persistent connection
+HTTP/1.1包含GET POST HEAD 多了PUT(上傳檔案) DELETE 
+    OPTIONS(回傳server對指定URL可提供的method) 
+    PATCH(只改變URL指定的resource的一小部分)(partially modify)
+        <比較> PUT會取代整個resource
+HTTP/2 以SPDY為基礎
+    多了幾個特點
+    Multiplexing 一個connection可以處理多個request 增加效率
+    header compression 縮小header可以加速通訊
+    prioritization 可以有優先序的處理 request handling的效率增加
+    和HTTP/1.1的method相同 寫得更有效率和併行性(concurrency)
+HTTP/3 以QUIC為基礎
+    用QUIC取代TCP 降低延遲 提升速度 加強安全性
+    和HTTP/2 HTTP/1.1一樣的method
+    利用QUIC的connection management和stream multiplexing改善data transfer
+
+
+HTTP Response Message
+Status line //類似request時的request line
+    1.protocol: 寫HTTP version
+    2.status code: 表示request的result
+    3.status phrase: 一段和status code相關的short message
+    ex: HTTP/1.1 200 OK
+Header line
+    提供關於response的額外訊息
+    ex: server, content type, length, connection status(ex: Keep-alive保持連接開啟)
+    一樣用\r\n表示end
+Data(entity body) 實體主體
+    包含actual content or data sent from server (ex: HTML file, 檔案, 圖片)
+    會在header line後面
+    包含client request的data
+
+HTTP Response Message: General Format
+Status line
+    1.version: HTTP version (ex:HTTP/1.1)
+    2.status code: 一些特定的數字代表result of request (ex: 200)
+    3.status phrase: 一個用來描述status code的brief message (ex: OK)
+    一樣用\r\n做end
+Header line
+    1.header field name: 標頭欄位名稱 (ex:date content-type)
+    2.space(sp): 用來分隔field name和value
+    3.value: 欄位的值
+    provide metadata (ex:date, content length, server info)
+    一樣用\r\n做end
+Blank line
+    用來分隔header和entity body
+    是cr/lf或/r/n
+Entity body
+    在blank line後面
+    包含要傳給client的actual content (ex:HTML file, image)
+
+
+HTTP Response Status codes (包含在status line裡面)
+
+200 OK: 表示請求成功
+301 Moved permanently: 物件被永久搬移到new location會寫在location header
+400 Bad request: server因為語法(syntax)錯誤或請求不完整所以看不懂
+404 Not found: 找不到請求的資源或文件
+505 HTTP version not supported: server不支援client的HTTP version
+
+
+Trying out HTTP(Client Side) for yourself
+使用Talnet command模擬HTTP request 手動與server通訊
+Talnet是一個命令行工具 用來開啟TCP connection 使用者可以手動連接server
+輸入telnet cs.nccu.edu.tw 80 就會從port 80開啟一個TCP connection連到server
+
+connection開啟後可以自己打HTTP request
+GET /index.html HTTP/1.1    指令/版本
+Host: cs.nccu.ecu.tw    標明server
+
+Expected server response
+Server端接到request後respond with HTML file和status message
+(ex: 200 OK, 404 Not Found)
+用telnet可以看到原始的response
+包含HTTP status line, header, HTML content, Date, Server,
+Last-Modified, ETag, Content-length, content-type
+
+HTML content 內可以包含meta tag 用來redirect到另一個URL
+ex: <meta http-equiv="refresh" content="5; url=https://example.com">
+    指令是刷新                  5秒後       導向的網址
+通常用在搬遷頁面和臨時通知
+
+
+User-Server State: Cookies 是一種伺服器和用戶之間保存狀態的機制
+用來追蹤用戶活動(tracking) 提供個人化服務(personalization)
+Cookies的運作由4個component組成
+1.HTTP Request的header line:
+    client發送的請求中會包含cookie資訊 告訴伺服器用戶的身分和偏好
+2.HTTP response的header line:
+    server回應時可能包含cookie資訊 像是新的或更新過的cookie
+3.cookie file on user device:
+    cookie file存在用戶的device上 由瀏覽器管理 用來記錄用戶的id和其他資訊
+4.back-end database on the server:
+    server端有database用來管理追蹤用戶資訊 在未來可以識別用戶
+ex:
+Bob第一次用pc連到某個site
+site server收到initial HTTP request
+就會generate unique ID給Bob
+在server端的back-end database創一個以ID為key的欄位(entry) 未來訪問時可用
+
+cookies的3個主要用途
+1.Session management: 保持用戶的登入狀態 紀錄偏好設定
+2.Personalization: 根據瀏覽習慣送廣告或推薦內容
+3.Tracking: 紀錄用戶瀏覽的商品或頁面內容 像是購物車 讓用戶下次訪問可以延續這次的行為
+
+以youtube舉例
+session management: 保留帳號登入的紀錄
+personalization: 演算法推薦影片
+tracking: 觀看紀錄
+
+可能會多個網站共用cookie 像google和youtube可能會共用一些資訊 更好personalization
+不一定所有的網站都會有cookie 像一些小型網站就不用
+cookies通常放在HTTP message的header裡面
+
+Cookies: keeping "state"    這裡解釋怎麼用cookie在無狀態的http中建立有狀態的機制
+1.initial request
+    client request: user送HTTP request到server
+    server response: server回應的header中會包含Set-cookie標頭 分配用戶ID
+    ID storage: user unique ID會存在user的device中(user's cookie file)
+2.subsequent request
+    cookie sent: 用戶送請求(包含cookie ID)給server
+    server response: 根據id對應到的data做cookie-specific actions
+        ex: personalization, session management
+3.maintaining state over time
+    cookie storage: cookie存在user device內
+    automatic login: user再次訪問時瀏覽器(browser)會自動送cookie
+        達到remember user和preferences的效果 (不用re-login or starting over)
+
+Use of cookies
+1.Authorization: 驗證user的identity
+2.Shopping carts: track items追蹤購物車的內容 讓不同頁面也可以追蹤
+3.Recommendations: 提供個人化推薦(personalized suggestion)
+4.User seesion state: maintain session continuity保持登入狀態 偏好設定
+
+how state is maintained
+1.protocol endpoints: sender和receiver track state accross transaction
+2.cookies: 運送state information in HTTP messages
+
+Cookies and privacy
+cookie可能會拿到significant user data(像name address等)
+可能會洩漏personal details
+而且search engines可以透過redirection和cookies得到更多activity data
+
+Web cache(Proxy Server) (代理伺服器)
+主要目標是減少和原始伺服器的聯繫次數 提高client請求的回應速度 降低流量負擔
+goal: serve client requests without contacting orign server
+1.User configuration(用戶端設置)
+    browser設定為透過cache(proxy server)來access目標網站
+2.Request handling(請求處理)
+    所有的HTTP request都送到cache
+    Cache Hit(命中): 如果request的東西在cache裡已經有了 會直接從cache傳給client
+    Cache miss(未命中): cache裡沒有 從origin server拿物件給client 並保留在cache
+3.Cache role(代理伺服器的角色)
+    對server而言是client端 ， 對client而言是server端
+    通常是由ISPs, 大學, 公司, 企業等設置的 給大量用戶使用
+用web caching的原因
+1. faster response: 減少從原始伺服器獲得內容的時間
+2. lower traffic: 減少server和client在access link上的traffic
+3. efficient content delivery: 
+    distributed caches: 分散式的架構提供更有效率的內容傳輸
+    benefit less-resourced providers: 類似p2p sharing
+通常會和web cache的物理位置有關 像是在client和server之間
+
+Caching example p.69-75
+這裡有一些計算
+比較重點: 建一個local cache比一個fat access link效果更好
+更有效率 成本也更低
+
+Conditional GET: 適用於Client-Side Caching 減少頻繁傳輸重複數據的方法
+client在HTTP request的header中加上If-Modified-Since: <date>
+    來詢問伺服器資料是否更新
+server response會有兩種情況 沒被改過和被改過
+Not modified:如果object unchanged server回應
+    HTTP/1.0 304 Not Modified.
+Modified:如果object有被update過 伺服器回應
+    HTTP/1.0 200 OK 並且送update data
+    client會update成cached version的new object
+
+
+
+
+--------------------------------------------------------------------
+2.3 FTP (File transfer protocol) 文件傳輸協議
+是一種允許文件上傳/下載的協議 基於client/server model進行操作
+
+File transfer:傳送檔案到/從 a remote host
+Client/Server model
+    client: initiate file transfer
+    server: remote host handling transfer
+FTP Protocol定義在RFC 959
+FTP server 在port 21
+
+
+FTP:Seperate Control, Data Connection
+
+1. connection establish: FTP client用TCP從port 21連到server
+    這是控制連接 負責傳遞命令和進行目錄操作
+2. Authentication: 通過控制連接 server要求client輸入認證訊息(帳密)做身分驗證
+3. Directory navigation: 控制連接允許client在server的目錄間導航 列出文件等
+4. File transfer: server會在port 20開一個data connection用來transfer file
+5. Data connection closed: 在每個file transfer後會關閉data connection
+6. new data connection: 當有額外的file transfer需要時再開啟新的data connection
+
+out-of-band control:控制連接和數據連接分開 互不影響
+    傳輸文件時仍然可以繼續在控制連接上發送命令
+state maintenance: FTP server會記錄用戶當前的目錄位置/認證狀態
+    讓多次傳輸時狀態訊息可以保持一致
+
+user透過FTP user interface操作FPT client
+FTP client會連接server 根據user的指令控制local file system ex:上傳/下載文件
+FTP server收到client端的指令後操作remote file system互動
+
+和HTTP的差別 HTTP會把method和檔案路徑都放在同一個指令裡面 FTP會分開
+FTP多了狀態維護就不用像HTTP每次指令的檔案路徑都要是完整路徑
+FTP可以保留控制連接持續追蹤狀態 不用一直重連 用戶可以在控制連接中送多個指令
+
+FTP commands, responses
+FTP指令(command)和回應(response)都是用ASCII格式傳送的
+Client端指令:
+1.User username: 傳送用戶名 啟動登入程序
+2.Pass password: 傳送密碼 完成登入驗證
+3.LIST: 回傳當前的文件目錄列表
+4.RETR filename: 下載指定的文件到本地
+5.STOR filename: 上傳本地文件到遠端主機
+
+Server端指令:   //FTP回應和HTTP的回應類似 一樣有ststus code + message
+1. 331: user name正確 需要密碼才能繼續
+2. 125: data connection開啟完成 開始傳送檔案
+3. 425: 無法開啟data connection (可能檔案壞了或找不到)
+4. 452: 寫入文件時出錯 像是磁碟空間滿了寫不進來
+
+
+
+--------------------------------------------------------------------
+
+2.4 Electronic mail: SMTP, POP3, IMAP
+
+Electronic Mail 電子郵件的3個component
+1.User Agent(UA) 使用者代理: 又稱為mail reader
+    讓使用者可以compose(編寫), edit, read email message
+    發送(outgoing)和接收(incoming)到的message會存到server
+2.Mail Server 郵件伺服器: 負責處理電子郵件的server ex:Gmail, Hotmail
+    包含mailbox(信箱)來儲存使用者的收件
+    message queue(訊息佇列)來放等待發送的郵件
+3.Simple Mail Transfer Protocol(SMTP): 負責mail server之間的傳輸郵件
+    SMTP用TCP port 25直接把mail從發送伺服器傳到接收伺服器
+
+Mail Server
+1.Mailbox 信箱:存incoming message for user
+2.Message queue:存準備要送出去的outgoing message
+3.SMTP protocol:規範mail server之間的通訊
+    一樣分成client和server 用send/receive email來分
+
+SMTP(Simple Mail Transfer Protocol)
+    TCP usage: reliably(可靠)從client用port 25送email到server
+    Direct transfer: email會直接從sending server送到receiving server
+transfer有3個步驟
+1. handshaking(greeting): sender和receiver建立連接 同意傳送
+2. message transfer: 傳輸郵件內容給receiver
+3. closure: 傳輸完後關閉連接
+
+SMTP command/response interaction (SMTP命令和回應機制)
+類似HTTP和FTP command一樣用ASCII
+response一樣有status code 和 message(7-bit ASCII format)
+
+ex: Alice要送訊息給Bob
+1.Alice 用自己的User Agent(UA) compose一個message addressed to bob@gmail.com
+2.Alice的UA會把message送到mail server，把message放到message queue準備送出
+3.mail server會自動用SMTP client會去開啟一個和Bob連接的TCP connection
+4.SMTP client透過TCP connection送出message給Bob
+5.mail server把Bob收到的message存到Bob的mailbox
+6.Bob用自己的user agent去access和read message
+
+mail server通常指的是整個管理郵件系統的伺服器
+    像是gmail的使用者 可能就共用同一個mail server
+每個user都有自己獨立的mailbox，mail server負責管理和儲存這些mailbox中的mail
+    並管理使用者之間發送接收訊息的過程
+User agent類似每個人操作時的interface
+
+
+sample SMTP interaction
+1.220 (Server ready)
+•Server準備好開始communication
+2.MAIL FROM
+•Client指定sender
+•Server replies with 250 (command successful).
+3.RCPT TO
+•Client指定接收者(recipient)
+•Server replies with 250 (command successful).
+4.354 (start input)
+•Server請求message content
+5.Message body
+•Client送message content
+•Message is ended with a single dot (.). 用英文句號代表結束
+6.250 (message accepted)
+•Server確認message成功送出和接收
+7.221 (Closing connection)
+•傳完以後關閉connection
+
+
+SMTP Final Words
+
+SMTP features(特性):
+    persistent connection: SMTP在發送多封郵件時會使用persistent connection
+        可以減少重連的需求 提高效率
+    7-bit ASCII: 固定用7-bit ASCII格式編碼 對文字內容的傳輸效果很好
+    用CRLF,CRLF來標記end
+HTTP vs SMTP:
+    HTTP是pull-based的 是client對server端發出請求並接收回應
+    SMTP是push-based的 是client端主動將訊息推送到接收伺服器
+    兩個都用ASCII和status code來interact
+    HTTP一個message一個object，SMTP一個message(multipart message)可以多個objects
+    multipart message: single body中包含一個或多個不同set of data
+MIME multipart message:
+    MIME提供了multipart/mixed格式 可以把多種不同數據結合到單個mail中ex:文字 圖片
+    boundaries(邊界) 用來分開不同part (ex: X….B164240404….X)
+
+ex: 結構類似這樣
+Message header fields
+X….B164240404….X
+Body part 1
+X….B164240404….X
+Body part 2
+X….B164240404….X
+
+
+Mail Message Format
+
+RFC 822 定義standard format of text messages
+1.Header lines: 包含To(收件者) From(寄件者) Subject(主題)
+2.Body: 整體的郵件內容
+3.format: 用ASCII
+
+
+Mail Access Protocol(郵件存取協定)
+    SMTP: 在接收者的server上處理傳送/儲存email
+    Mail access protocols:
+        POP(RFC 1939): 授權和下載email到client端 
+            下載後通常會把郵件從伺服器上刪除 適合單一設備上管理郵件
+        IMAP(RFC 1730): 提供了更靈活的管理 可以在伺服器上直接管理郵件
+            不會刪除伺服器上的郵件副本
+    HTTP: 通常在webmail service中使用(ex: gmail, hotmail)
+        允許使用者在瀏覽器訪問(browser-based)郵件而無須下載到本地
+
+POP3 Protocol (Post Office Protocol 3)
+POP3提取郵件有3個phase
+    Client在port 110開啟一個TCP connection到mail server
+    1.Authorization phase: client做帳密驗證
+    2.Transaction phase(檢視階段): client可以做retrieve, list, delete email
+        LIST: 回傳一些email message包含number和size
+        RETR: 用number下載特定的email
+        DELE: mark一個email去delete server的email
+    3.Update phase: 處理所有的delete mark之後關閉connection
+
+POP3的一些特性
+1.Download-and-delete:
+    email在下載完以後server會刪掉
+2.Download-and-keep:
+    email在下載完後server會保留(remain) 讓multiple clients可以access
+3.Stateless(無狀態):
+    POP3不會保留用戶的閱讀狀態(read status)和訊息結構(message organization)
+    會記錄下載/刪除(download/deletion)狀態
+
+
+IMAP(Internet Message Access Protocol)
+1.Central storage: 所有訊息都存在server 適合多設備間同步
+2.Folder organization: 用戶可以在伺服器上把郵件歸類到不同folder(資料夾)
+3.Stateful: 可以維護user state(用戶的folder結構和閱讀狀態) 達到不同設備的一致性
+4.Synchronization: folder和mail在server和client之間保持同步
+    多個設備可以保持同樣的閱讀和郵件狀態
+
+POP3適合單一設備 能快速處理郵件下載和刪除 設計重於速度效率
+IMAP更適合需要多設備同步 保留郵件結構的狀況 犧牲掉一些效率和速度
+
+ex:
+POP(Post Office Protocol)
+1.Local download: email下載到device之後通常會從server刪除
+2.No Synchronization: devices之間沒有synchronization 
+    每個client works independently
+IMAP(Internet Message Access Protocol)
+1.Server storage: email存在server 讓multiple device可以access
+2.Synchronization: changes(read, delete, organize)在不同設備上同步
+3.Folder control: user可以create, delete, move這些folder，folder也會同步
+4.Storage options: email可以copy到本地也可以放在server
+
+
+--------------------------------------------------------------------
+
+2.5 DNS
+
+IP Address: 32-bit identifier
+Domain name: human-readable name
+
+DNS(Domain Name System) 是一種分散式的層級式資料庫(distributed hierarchical)
+用來把人類readable的domain name對應到ip address
+因為ip address不好記 所以利用DNS來做mapping
+是一種distributed hierarchical database 
+在appication layer protocol用UDP(User Datagram Protocol)
+    在host和name server之間做address/name 翻譯
+    //複習 UDP講求速度 不講求穩定無錯
+network complexity: 是由network edge做管理的 而不是core/router
+
+DNS Service, Structure
+DNS service:
+1.hostname to IP translation: 把domain name轉成ip address
+2.host aliasing: map alias names to canonical name
+    alias是別名 ex: Alias 1: www.example.com
+                    Alias 2: mobile.example.com
+    canonical name標準名稱 ex:relay1.west-coast.enterprise.com
+    alias和canonical name都是domain name 但alias可以有很多個 canonical只有一個
+    DNS在做查詢時會先找alias對應的canonical name 再把canonical name轉IP adress
+3.mail server aliasing: 類似是在email server的aliasing
+    ex: alias: hotmail.com
+        canonical: relay1.west-coast.hotmail.com
+4.Load distribution
+    DNS可以把單一網域用一個domain name對應到多個IP address做分流
+    通常是大型網站(ex:google, facebook)才會使用
+
+why not centralize DNS  (為什麼不中央化管理DNS)
+1.single point of failure: 單點故障會導致system failure
+2.high traffic volume: DNS很常被使用 伺服器負擔過高
+3.distance: 在連線一個距離遠的database時delay會很高
+4.maintenance issue: 維護 管理 更新的負擔大
+5.scalability: 不好做擴展
+
+
+DNS結構 分散 分層 (distributed, Hierarchical)
+1. Root DNS server
+    DNS hierarchy的highest level
+    負責處理TLD(Top-Level Domain) DNS server的queries
+    當用戶在用戶端的DNS找不到ip address時會去問root DNS server
+    然後root DNS server會告訴用戶要去下一層的哪個server去找(TLD server)
+
+2. TLD server   
+    負責管理特定的top lvel domain 
+    ex: com DNS server 處理".com" domain的queries
+        其他像是org  edu也是有對應的
+    TLD server會照對應的domain name把查詢指向下一層(authoritative DNS server)
+
+3. Authoritative DNS server
+    給最終特定的domain name的ip address
+    authoritative DNS server維護了domain name和ip address的mapping
+
+4. Local name server
+    ISP或公司內部提供的DNS server
+    在做查詢時會先看local name server裡面有沒有 如果有就直接返回
+    沒有再去跟root DNS要
+
+如果想要查詢某個domain name的ip address時 會先從local name server看有沒有 
+有的話回傳 沒有就去和root server要 
+root server->TLD server->Authoritative DNS server的每一步都類似是在做分類 
+root server->TLD是根據.com .edu等的domain name做分類
+TLD->authoritative是根據細部分類 最後到authoritative回傳
+
+ex:
+TLD server可能像是 com DNS server, org DNS server, edu DNS server
+Auth DNS 像是com下面有facebook.com DNS server , amazon.com DNS server
+
+
+Root Name Server
+1.local name server找不到某個hostname對應的ip時呼叫root name server
+2.root server導向對應的authoritative server
+3.authoritative server回傳結果 收到結果後回傳到local name server
+順序 local server找不到hostname，root server導向對應的authoritative
+    authoritative回傳mapping mapping存在local name server的快取中給未來使用
+
+Top-Level Domain(TLD) server
+TLD server管理top-level domain (ex: .com, .org, .edu)
+    country-specific domain也包含在內 (ex: .uk, .fr, .ca, .jp)
+每個TLD server都有專門的組織管理
+    Network Solutions 負責管理.com TLD server
+    Educause 負責管理.edu TLD server
+
+Authoritative DNS Server
+提供hostname轉IP address的mapping
+管理方式有兩種
+    組織(organization)自行管理
+    third-party service provider (第三方管理)
+
+Local DNS Name Server
+每個ISP都會配置一個local DNS server 又稱為default name server 用來處理用戶查詢
+host送request時會把DNS query送到local server
+Cache maintained: 把最近用到的address存到cache裡面 cache太久沒用會過期
+act as proxy: local DNS server在cache中找到ip address後會負責代理
+    將查詢轉發給上層的DNS server 直到找到對應的ip address
+
+
+DNS Name Resolution example
+1.Host request: 請求者request某個網站的ip address
+2.Iterated query process: 被問的server提供另一個server name(下一個要去找誰)
+3.Server response: "I don't know the IP address, but ask this server"
+
+有兩種DNS Name Resolution 的做法 1.Iterated 2.Recursive
+1.Iterated 類似以local DNS server為中心 過去回來
+    requesting host -> local DNS server -> root DNS server 回到 local DNS server
+    -> TLD DNS server 回到 local DNS server
+    -> authoritative DNS server 回到 local DNS server
+    最後送回requesting host
+2.Recursive 是用遞迴的概念 每一個server都問下一個然後接收下一個的回傳 
+    只有authoritative負責回傳       //(recursive query)
+    requesting host | local DNS  | root DNS | TLD | authoritative
+                   1->          2->        3->   4->
+                    <-8         <-7        <-6   <-5
+    這種模式higher-level DNS server負擔(load)會比較高
+
+
+DNS: Caching, Updating Records
+1.caching: name server存mapping在cache裡面
+2.TTL(Time-to-Live): 用TTL定義cache裡面mapping的保留時間
+3.TLD server caching: TLD server經常被cached在local name server
+    來最小化root server的queries
+4.Outdated cache entries: cached entries可能會outdated
+    這裡是指當host改變ip時 會導致短暫的不一致 要等到TTL到期後才更新(TTLs expire)
+5.Update/notify mechanisms: 
+    RFC2136多了一個更快更新DNS mapping的方法 這是一種主動通知的機制 縮短了TTL time
+
+
+DNS Records in DB(DataBase)
+    distributed database 儲存 RR(resource records)  
+RR Format: (name,value,type) 四種儲存方式
+    Type A:
+        Name: hostname
+        value: IP address
+        ex: (relay1.bar.foo.com, 145.37.93.126, A)
+    Type NS(Name Server):
+        Name: domain
+        value: hostname of the authoritative name server
+        ex: (foo.com, dns.foo.com, NS)
+    Type CNAME(Canonical Name)
+        Name: alias for a canonical name
+        ex:(www.ibm.com, servereast.backup2.ibm.com, CNAME)
+    Type MX(Mail Server)
+        Name: Alias for a mail server
+        Value: Name of the mail server
+        ex: (foo.com, mail.bar.foo.com, MX)
+
+
+DNS Protocol, Messages
+Query和reply format相同 (same structure)
+Header(12 bytes)
+1.identification: 16bit number 用來讓query對應reply
+2.flag: 表示是query或reply 還有是不是recursion
+3.numbers of questions, answer RRs, authorit RRs, additional RRs
+4.Question(variable): 包含query name和type
+5.answer(variable): 包含對應query的RR (ex: IP address)
+6.authority(variable): 包含對應authoritative name server的resource records
+7.additional information(variable): 其他額外的RR
+
+
+Inserting records into DNS 想要把網址ip登陸DNS
+1. Domain registration: 到DNS registrar註冊domain (ex:Network Solution)
+2. Provide server details: 提供name和authoritative name server的IP
+3. register adds RRs to .com TLD server: 註冊一些RR到TLD server
+4. set up authoritative server: 加一個Type NS RR和Type A RR
+
+P2P applications
+
+
+
+
+
+PORT整理
+FTP 21=>control connection ， 20=>data connection
+HTTP => 80
+SMTP => 25
+DNS => 53
+POP3 => 110
+
+
+email相關
+SMTP 主要是傳送郵件
+POP3 主要是下載和刪除郵件 適合單一設備使用
+IMAP 同步功能和狀態管理
+

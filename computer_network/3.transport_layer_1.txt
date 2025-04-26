@@ -1,0 +1,724 @@
+
+Tranport layer
+
+transport layer 在OSI的第四層 為application layer提供可靠/高效的傳輸服務
+處理host to host的通訊
+
+主要功能
+1.分割與重組  
+    把application layer裡面較大的數據切成小的封包(segment) 方便傳輸
+    receiver負責重組這些小封包(segment) 還原完整訊息
+2.提供端到端(host之間)的通訊
+    負責管理主機之間的通訊 而不是只有節點之間
+3.多工(multiplexing / demultiplexing)
+    可以讓多個application同時使用網路
+    把不同的數據封包分配到正確的connection中 讓他們不互相混淆
+4.流量控制
+    可以調節數據的傳輸速率 避免congestion
+5.檢測和糾錯 (error detection)
+    檢查訊息是否正確傳輸 沒有丟包或損壞
+6.連接管理
+    TCP協議由transport layer負責建立、維護、關閉連接
+
+最常見的兩個protocol是TCP(connection oriented)和UDP(connectionless)
+1.TCP 
+    傳輸重點在可靠 穩定 確保按照order 沒有packet loss
+    適用在需要精確 可靠的application ex:電子郵件(SMTP) 網頁瀏覽(HTTP/HTTPS) 文件(FTP)
+    功能: 
+        1)建立連接(3次握手)
+        2)flow control和congestion control 
+        3)確保數據order
+
+2.UDP
+    傳輸重點在速度 不保證數據的可靠性和順序 傳輸速度快 成本低
+    適用在對速度要求高 可以接受丟包的application ex:影片 遊戲 網路電話
+    功能:
+        1)connectionless模型
+        2)沒有flow control和congestion control 
+    
+
+
+3.1 Transport-layer service
+
+transport layer的角色
+    1.logical communication:負責不同host的application之間的通訊
+    2.infrastructure abstraction: 隱藏一些detail
+implementation
+    1.end-system operation: 他有一些end system用的function 而不是用在router
+    2.message conversion: 把application層的訊息切成transport segments
+        //把大訊息切成小的封包(transport segments)
+    3.header addition: 加一些header和forward segments到network layer
+        header是在每個segment前面附帶的一組訊息 包含transport layer需要的訊息
+        在transport layer處理完(加完header和分割後) 這些segment會傳到network layer
+        network layer繼續處理這些segment 包裝成packet(數據包) 之後再添加網路層的
+            header(ex: IP address) 讓router做傳輸
+
+Process flow
+    sending: 把訊息devide成segments 把他們包裝成network layer的packets
+    receiving: 解析這些segments後把data傳到application
+選擇不同protocol提供不同service給applicaiotn
+
+transport layer和network layer之間的關係
+比較:
+    transport layer: 不同host上的process之間的logical communication
+        只有在end system中運行 處理應用程式之間的通訊
+    network layer: 不同host之間的logical communication 
+        在整個網路設備中運行 包括了router和end system 
+household analogy 這裡在用房子和郵件系統做比喻
+    host類似一個房子 裡面住著不同的process
+    application message類似包裝著信的信封 
+    network protocol負責把訊息從host送到另一個host(房子)
+    transport protocol在host內負責把訊息(信件)送給正確的process(人)
+
+tranport protocol只在end system中執行
+service model: 根據不同service決定protocol (TCP UDP)
+
+
+簡單來說 network layer是實際上處理host到host之間傳輸的
+    host內部具體要傳給哪一個process才是tranport protocol的事
+
+limitations and capabilities
+    Transport層會受到network layer capability的限制 但還是可以增加穩定性和加密
+
+
+Tranport layer protocol 
+1.UDP: unreliable, connectionless 類似把service最簡化  拋棄穩定性和error checking
+2.TCP: reliable, connection-oriented 可以做data transfer, error checking 有處理壅塞
+
+TCP/UDP packet都叫做segment
+network-layer packets叫做datagram 
+network-layer(IP) 提供best effort, unrelaible的傳輸 每個host有一個唯一IP address
+    //這裡的best effort指網路層會盡力做傳輸 但不保證穩定性 順序性等
+    無論TCP或UDP在network layer的傳輸方式都是一樣用這個的
+    TCP只是在host內的transport layer再多添增一些限制來保障順序 穩定等
+    網路層通訊類似UDP的特性 是為了簡化 讓效率更高 如果需要穩定的話在上層添加限制就好
+
+
+Service Model
+UDP:
+    extend IP:UDP protocol是對IP protocol的簡單延伸 在ip後面加port number來實現
+        process之間的通訊 (為了快速 低延遲)
+    no guarantees: 不保證reliability和order
+TCP則增加了reliability, ordered delivery和congestion control
+    確保不同connection之間平分bandwidth來避免congestion
+complexity of TCP
+    1.flow control: 需要控制data rate來避免overload (buffer)
+    2.sequence number: 為了確保order需要做packet的編號
+    3.acknowledgements: 需要確認receipt //用來告知sender有收到訊息 類似發票
+    4.timers: 用來detect packet loss / trigger retransmission
+
+TCP:功能強大 有保障 代價就是需要額外時間 成本  UDP:輕量級 重於速度
+
+
+
+
+------------------------------------------------------------------------
+
+3.2 multiplexing and demultiplexing 
+
+先chatgpt
+大概就是在講transport layer怎麼處理多個apllication之間的數據交換
+1.multiplexing 
+    在講sender
+    把多個application的數據匯集到單一的transport layer 再透過network layer的傳輸 
+    sender要做的事情基本上就是
+        1.從多個app收集要傳送的數據
+        2.在每個數據中添加一些identifier(ex: port number) 用來區分來自哪個app
+        3.把這些東西傳送到network layer做傳輸
+    ex: 一台電腦可能同時要用HTTP和SMTP
+        HTTP就被分到port 80 SMTP被分到port 25 這樣就是multiplexing
+2.demultiplexing 
+    在講receiver
+    根據這些identifier把數據分配到正確的應用程式
+    receiver要做的事
+        1.接收到來自network layer的數據段
+        2.根據數據段中的destination port 把數據分配給對應的app
+    ex: destinition port 80的話就給HTTP server 等
+這讓我們在同一時間可以進行多種通信 ex:視訊會議(UDP)+文件傳輸(TCP)
+通常會是以port number當作identifier 
+
+---------------------------------
+投影片開始
+
+multiplexing: 把不同socket的data增加header以後合在一起 把segment送到network layer
+demultiplexing: 把送來的segment根據header information送到正確的socket
+
+port number用來識別application
+socket address = IP address + port number用來標示data delivery要送到哪 
+    可以想成是socket的unique ID  用來correct routing
+segment裡面包含source和destination port #
+    知名的port像是HTTP 80, FTP 21
+
+過程:
+    1.destination port check: transport layer檢查segment的destination port 
+    2.routing to socket: 把segment定向到對應的socket
+    3.data delivery: 把data送出去到對應的application
+
+Operational flow 
+Multiplexing (sender):
+    1.每個app有一個unique port number (ex: HTTP-80 FTP-21)
+    2.transport layer會結合多個app的data stream
+    3.assign不同的source port給每個data stream 用來當作identifier
+    port number讓transport layer可以區分不同app的data stream 
+Demultiplexing (receiver):
+    1.transport layer檢查每個segment的destination port
+    2.把data route到對應的socket (根據port不同區分data stream)
+    3.把data送到對應的application 讓他們可以獨立操作
+
+Other header fields
+    1.sequence number 用來確保order
+    2.acknowledgements 用來確認有送到(data receipt)
+    3.protocol flags 用來放control information 
+    4.message content 放要交換的data
+
+
+
+Connectionless Multiplexing and Demultiplexing
+
+client vs server port assignment
+    client通常是auto-assigns ports 
+    server通常是手動(manually) assign一些知名protocol對應到知名的port
+
+UDP socket通常定義為four-tuple:
+    (source IP, source port, destination IP, destination port)
+    這並不唯一(not unique) 同一個four-tuple可能會在多個datagram出現
+    //因為four-tuple只有指定ip port 不同時間下用同一條路送的都會相同
+        這裡可以去聯想到他connectionless的特性 不會保留狀態
+source port是用來當作return address 如果需要reply(回應)時用來當作目標
+
+
+Connection-Oriented Multiplexing and Demultiplexing 
+TCP socket identification
+    他的four-tuple定義和UDP相同
+        (source IP, source port, destination IP, destination port)
+    但他是unique的 //這裡指的是他的生命週期下 同一個destination就是用同一個連接
+        所以只會有一個相同tuple的connection
+    demultiplexing一樣是去把segment去對應到正確的socket
+
+TCP connection establishment
+    Welcoming socket: server會一直在listen(監聽)一個特殊port (12000)
+    Client request: client會從unique source port去送connection request
+    Connection acceptance: server收到請求後同意 創一個新的socket (由four-tuple定義)
+
+Data transmission
+    segment routing: 把相同four-tuple的segment放到對應的socket
+    multiple connections: 利用four-tuple的uniqueness來同時有多個connection
+
+假設兩個不同client要連到同一個web server (HTTP port 80)
+    client用自己的unique source port (port不一定)
+    server都還是用port 80去連接 變成是client要去共享這個port
+    server也就可以從source ip/port看出是要給誰的
+
+
+TCP: 80(HTTP), 443(HTTPS), 22(SSH)
+UDP: 53(DNS), 123(NTP), 161(SNMP)
+
+
+
+
+Web Servers and TCP
+
+web server通常都是HTTP port 80 所有client都連接到80
+利用source destination做到client identification
+web server可以創新的process或thread來處理client connection
+    仍然共用port 80但可以有獨立的connection socket
+
+persistent vs non-persistent HTTP 
+Persistent HTTP: 重複用相同的socket
+Non-persistent HTTP: 每個request/response都會用新的socket
+
+
+
+------------------------------------------------------------------------
+
+3.3 Connectionless transport: UDP 
+
+UDP功能
+    lightweight protocol(RFC768): 只有在IP Protocol上再加一點東西
+    Basic functions: 有multiplexing/demultiplexing還有少量的error checking 
+    direct data handling: 用最少的處理把data送往network layer 
+特色
+    1.Connectionless: 沒有handshake 所以能reduce latency 
+    2.No connection state: 沒有state tracking (ex: no buffer, sequence number)
+    3.Low overhead: UDP的header比較小(8 bytes) TCP有20bytes
+
+UDP的優勢
+    1.Application-level control: data會立刻送出 沒有TCP congestion control 
+    2.No delay from connection setup: 適合需要fast-response的app 像是DNS
+    3.Efficient for high client loads: server能支援更多client(少了state需要maintain)
+    4.Reduced header size: 少的overhead->prioritized speed over reliability 
+
+使用UDP的有
+DNS(Domain Name System):
+    fast queries 能夠快速回應查詢
+Real-time applications:
+    網路電話, video, streaming這些可以部分data loss的
+Network management(SNMP):
+    SNMP(Simple Network Management Protocol): monitor and manage network device 
+    Operates under load: 
+    No congestion delay: 沒有congestion control就能沒有delay的持續送management data
+
+限制
+1.No congestion control: 可能會讓網路congest 甚至影響到TCP的performance
+2.No built-in reliability: 如果要求reliability的需要自己implement
+
+
+UDP Segment Structure
+Header fields有4 field 每個field 2 bytes
+    1.Source port 
+        Sender Identification: 可以知道送來的port
+        Response routing: 讓receiver有辦法response給sender
+    2.Destination port
+        Receiver identification: 可以知道接收的port
+        accurate routing: 把data direct到正確的app(receiving host)
+    3.Length 
+        Segment length: UDP segment的長度
+        Data size Indicator: data size 
+    4.Checksum 
+        Error checking: 驗證header和data integrity
+        Data integrity: 可以detect到transmission error 
+Application data(message)
+    Application-specific data: 像是DNS queries, response, streaming audio
+    Main payload: 實際再application layer的data
+
+
+UDP Checksum 
+checksum是為了detect transmission error 
+
+Checksum calculation
+    使用1's complement
+    1.先把segment切成很多16 bit word
+    2.加總這些word = A (16 bit)
+    3.做一個16 bit的補數 B = ~A  就是A+B=(1111111111111111) //16個1
+    加法時溢位要回捲(wrap overflow) //最高位如果1+1的話進位的1要補到最低位
+
+Error detection 
+    加總segment裡所有的16-bit和checksum 結果如果是111..1 16個1就是正確的
+        任何deviation(偏差)都是錯的
+
+Checksum的重要性
+    link-layer沒辦法detect所有end to end error 
+    error可能在transmission時發生
+    UDP error checking提供transport-layer的error checking 
+限制:
+    UDP沒辦法修正錯誤 只能detect有錯
+    他會給warning然後丟棄或忽略損壞的segment
+
+
+Protocol layers有的error checking 
+Data link layer: local link error detection (CRC)
+Network layer: IP header validation 
+transport layer: 
+    UDP checksum: 偵測header, payload錯誤
+    TCP checksum: 偵測data integrity錯誤
+application layer: application-level驗證 ex:hash validation 
+
+
+
+------------------------------------------------------------------------
+
+3.4 Principles of reliable data transfer 
+
+Reliable data transfer problem
+    Essential in multiple networking layers 
+        Data link layer: 確保point to point(node之間)的reliability
+        Transport layer: 確保end to end data delivery 
+        Application layer: 當transport layer不能用時處理RDT(Reliable Data Transfer)
+            或是需要額外的reliability時
+    Data integrity: 確保data without corruption
+    Reliability: 確保資料沒有lost
+    Order preservation: 確保順序 correct sequence 
+
+TCP and reliable channels
+    Reliability over IP:在沒有保障reliability的IP layer上多一層reliable保障
+    Error handling: 處理data corruption 
+    Loss recovery: 有一些可以回復錯誤的機制 可以處理部分packet loss 
+
+
+Reliable channel的操作主要在Application layer和Transport layer兩層
+unreliable則是在transport和network兩層
+
+Protocol development //這段在講怎麼透過udt實現rdt
+    sender call: rdt_send() 是sender用來transmit data
+    receive call: rdt_rcv() 是receiver端收到data
+    Application delivery: deliver_data() 是把data送到application
+Unidirectional data transfer 
+    one-way transfer: 重點在unidirectional data flow 
+    control packets: 兩個方向的傳輸都需要管理
+    Unreliable channel sending: udt_send() 是在unreliable channel送packet
+//udt是unreliable data transfer, rdt是reliable data transfer
+    要用udt實現rdt的重點在建立雙向管理的機制
+
+
+reliable data transfer: Service model and service implementation
+Service model(provided service)
+    reliable channel: 
+        transport layer確保了沒有error loss duplication的data delivery
+    direct data flow:
+        data從sender送到receiver在理想狀況下是seamlessly(無縫的)的
+    abstraction for application layer:
+        application layer會假設是在fully reliable network下執行的 不會管底下的細節
+            所以tranport layer的穩定性很重要
+
+unreliable channel是無法保證packet loss, duplication, error的
+所以在sender要在傳輸前確保data integrity 先rdt_send()再udt_send()
+    //先用reliable確保再unreliable的送出
+在receiver要確保送到apllication layer的東西error-free 先rdt_rcv再deliver_data()
+
+
+Error-handling mechanisms
+包含acknowledgement retransmission checksum 目的是為了正確傳輸 處理網路問題
+
+
+protocol rdt1.0是最簡單的case
+sender: rdt_send(data) 接收data,創造packet然後送出去
+receiver: rdt_rcv(packet) 接收packet 分析出data 送到upper layer
+No feedback needed: receiver不需要提供feedback
+No flow control: 假設都能夠配合 跟上sender
+
+FSM(Finite-State Machine)用來track data transfer state
+
+
+
+
+
+
+
+
+
+
+
+------------------------------------------------------------------------
+
+ch2  p.128-206
+
+
+
+P2P Applications
+
+Pure P2P Architecture
+    No always-on server: end system直接互連 沒有永遠開著的中央server
+    Intermittent connections: peers經常改變ip address
+    常用在file distribution(檔案分配) (ex:BitTorrent), blockchain
+
+BitTorrent(一種網路協定程式)
+Blockchain用來記錄和驗證transaction
+
+
+
+p.128開始
+
+BitTorrent 基本概念
+1.file chunks(文件塊): file會被切成256KB的chunks 每個chunk可以單獨傳輸 
+    方便分散下載 提升效率
+2.Peers: 所有參與分享下載文件的用戶都是peers 每個peer同時是uploader和downloader
+3.Torrent(種子網路): 一組peers共同參與交換文件的chunks 形成一個分享網路 就叫做torrent
+4.Tracker(追蹤器): Tracker是一個中央伺服器 負責記錄參與torrent的peers
+    當有新用戶加入時把紀錄的peers資訊傳給他 幫助新用戶快速找到其他節點建立連線
+
+//和p2p的差別在多了中央管理系統(tracker register等等) 然後會把檔案切成chunks
+
+運作流程 
+1.Joining: peer初次加入會向tacker申請註冊(register)
+    tracker會回傳peer list給新用戶
+    連線到subset of peers後就可以開始exchange chunks
+2.Chunk exchange: peer在下載chunks的同時會upload chunks給其他人
+    用戶可以switch peers 切換連接的peers達到更好的下載速度
+3.Churn(動態變化): peer可以在任意時間 自由加入或離開torrent
+    網路中的參與者數量和質量隨時間變化 torrent的設計可以容忍這種特性
+4.Completion: 下載完整個檔案以後選擇退出或是留下來幫助其他人(變成seeders)
+    seeder是指主要都在負責提供檔案的用戶
+
+requesting chunks
+    每個peer有不同的subset of file chunks 
+    會定期問其他peer的chunks list 
+    對missing chunks會優先下載neignbors中最少的chunks
+sending chunks //送chunks是用tit-for-tat的策略 送的比較多的人優先
+    top 4 peers: 會選擇送給我方最快的4個peer叫做top 4 peers
+    其他peer會先暫時被choked 類似避免浪費在分享給沒用的人上
+    每10秒會重新選一次top 4 peers
+    optimistically uncoked 每30秒會隨機挑一個被choked節點送給他 這是避免有人都沒拿到
+    被隨機送到的人再送回來的動作叫做Reciprocation
+
+
+DHT(Distributed Hash Table)
+    是一種分散式p2p database
+    資料儲存格式(key, value) ex: key=>SSN value=>名字
+    資料分散儲存在上百萬個節點(peers)中
+    每個peer有一部分的pairs (small subset of pairs)
+Querying: 根據給的key找到這個key在的節點 再回傳value
+Inserting: 可以insert新的pair到DHT 會分配到適合儲存的節點儲存
+
+DHT的核心問題是 怎麼把pair (key, value)分配到適合的節點
+basic idea:
+    1.Key->Interger: 把每個key換成一個整數 (通常用hash function)
+    2.Interger->peer: 每個peer也會分配到一個unique整數 類似id (常用hash function)
+    3.pair->peer: 根據key對應的整數值 把pair儲存在最接近該整數的節點上
+        就是根據pair的key的整數值把pair放到值id值最接近的peer上面
+
+DHT identifier
+    每個peer有一個整數id， n bits=>範圍是0-2^n-1
+    pair的key也要在同一個範圍裡面 n bits=>0-2^n-1
+    把key用hash轉換成整數 因為hash的特性會唯一
+    //key原本可能是字串 經過hash對應到唯一的整數 這個整數類似當作bucket的索引
+        bucket就是前面指的pair (key, value) 用來儲存data
+    如果資料太多overflow就可以再往後分隔 primary key, secondary key這樣
+
+    collision: 可能會有多個key的hash值相同 就可以存在靠近的buckets
+    lookups: 把key(ex: name)轉成整數再locate到正確的data
+
+Assign keys to peers
+    peer和pair的id都是hash出來的
+    這邊再討論已經決定好peer pair的值以後在做的事(如何把pair分配給peer)
+    可以用環形的概念去想
+    假設peers: 1,3,4,5,8,10,12,14 
+    當pair key=13 =>從13開始找下一個 => 14
+    當pair key=15 =>從15開始找 => 1
+
+Circular DHT 
+    Peer knowledge: 每個peer只知道下一個和前一個節點
+    Overlay network: peer的logical network建立在physical network上面
+    Query resolution: 只知道上一個和前一個的情況下query是O(N)個message 
+    可以增加shortcut來增加效率
+        shortcut可以想成是多加了幾條通訊的路(多幾個別人的ip address)
+    需要的query數會減少成O(logN) 因為shortcut的查詢可以想成類似hash Table
+        log n層的O(1)所以是O(logN)
+
+Peer churn 
+    churn:用戶(peers)可以自由join/leave
+    實現方法像是每個peer往後存兩個successors
+    這樣後面的沒了就可以把更後面那個當作下一個 並更新新的successor2
+    具體存多少個就是工程上的問題 系統穩定性和空間成本的考量
+
+DHT用在想要處理很多分散的peers時
+data and hashing: data經過hash變成uniqeu key 
+distributed network: key會分散儲存在p2p network中 peer會存keys
+Ring strucutre of peers: peers會用circular結構儲存 
+    每個peer會存一個range的hashed key 
+Key assignment and responsibility: 每個peer管理一個range的specific key 
+Key distribution: key根據integer去分給最接近id的peer
+
+
+
+------------------------------------------------------------------------
+
+2.7 Video streaming and content distribution networks 
+
+Video Streaming and CDNs(content distribution networks)
+這段在講視訊串流和內容分發網路(CDNs)
+video traffic: 使用者佔據最多bandwidth的是video的部分
+Platform: Youtube, netflix等
+scale challenge: 這些平台通常需要支持超級多用戶 單一server不能承受那麼大的需求
+Heterogeneity(異質性) challenge:用戶會有不同的capability
+solution: 解決方法就是用一個distributed application-level的infrastructure
+
+Multimedia: Video 
+Video: 用一個constant rate傳送的sequence of images
+Uncompressed video: pixel array加上一些luminance(亮度)和color
+Compression: 為了節省bit rate 需要犧牲一些video quality 
+Higher bit rate: bit rate高=>更好的畫質
+Bitrate range:
+    low-quality: 100Kb
+    High-definition: >3Mb
+    4K: >10Mb 
+
+兩種Coding方式: Spatial Coding(空間編碼), Temporal Coding(時間編碼)
+Spatial coding(空間編碼):
+    reduce spatial redundancy:目標是想要減少重複資訊
+    在同一個frame中會想要省略重複的東西(相同顏色或模式) ex:藍天 牆壁等
+    重複的資訊可以用簡化的方式儲存 ex:顏色p重複N次 => (p,N)
+Temporal coding(時間編碼):
+    針對時間方面的 連續貞畫面之間的重複資訊做壓縮
+    ex:在連續的畫面中可能背景沒有改變 這樣就只需儲存改變的部分
+    只去紀錄每貞之間的差異
+    ex:frame i和i+1之間 沒改變的部分不用 re-encoded 只記錄difference
+
+video encoding: CBR vs VBR
+CBR(Constant Bit Rate): 固定encoding rate
+VBR(Variable Bit Rate): 根據spatial和temporal coding去改變encoding rate
+    動態的是和提高畫質和效率
+
+Streaming Stored Video 
+video streaming的flow
+1.content provider:video是從streaming service來的
+    儲存或encode在video server 
+2.internet transmision: 透過CDNs(Content Delivery Networks)來達到效率的運輸
+3.Home network: video通常最後在TV computer mobile等地方
+重點:
+video是從一個中央(centralized)server傳來的 從網路運輸道user device
+下載和buffering可以讓playback更smooth並處理網路問題
+
+
+DASH(Dynamic Adaptive Streaming over HTTP)
+根據用戶網路條件提供最佳化的播放體驗 動態調整影片品質
+
+1.video splitting: server會把cideo切成多個chunks
+2.encoding: 每個chunk有不同bit rate來適應網路情況 不同畫質對應不同速度
+3.chunk storage: chunk會用不同的URL 是為了accessibility
+4.manifest file: 提供metadata給chunks 包含URLs, bit rates 
+    用coherent set去描述file 用來記錄所有段落和對應的品質資訊
+適應性強 基於標準協議(HTTP/HTTPS) 支援多個平台 靈活性
+
+DASH在client端
+1.bandwidth measurement: client會定期檢查server-to-client bandwidth 
+2.chunk request: client會用manifest去依序request chunk
+3.adaptive rate selection: client會根據當下的bandwidth去選
+    highest sustainable coding rate
+4.Dynamic switching: bandwidth改變時client會調整coding rate
+client要注意request的時間(timing) 要避免buffer starvation/overflow 
+    根據網路狀況和bandwidth調整bit rate
+    選擇optimal(最佳的) server來達到有效率的chunk delivery 
+
+
+
+Content Distribution Networks(CDN)
+
+Challenge: video可能是上百萬的 user可能上百上千
+option 1: single mega-server 用一個單一的大伺服器去處理
+    問題會在single point failure可能導致整個壞掉
+    congestion的問題嚴重
+    對遠距離的client會需要比較長的path 
+    同一個video可能要經過同一條路很多次 導致浪費
+option 2: CDN 
+    solution: 用distributed sites去存很多份video的copy
+    enter deep: 把CDN建立在很多ISPs上面 讓不同使用者可以有更好的存取路線
+        這會讓latency降低 但更難管理
+    Bring home: 在少數地方建大的CDN clusters
+        clusters建立在IXPs上面 這樣更容易管理但latency比較高
+
+CDN functionalilty
+    content storage: 存很多copy of content
+    subscriber requests: 用戶會連線到最接近的CDN node來取得content
+    congestion handling: 如果congestion會switch到另一個network path
+
+OTT(Over-The-Top) challenge 
+    想要處理internet congestion 
+    如何決定選擇要哪一個CDN code來取得content
+    理解congestion時viewer會怎麼改變
+    如何決定content要存在哪一個CDN code
+
+CDN Content Access 
+step1: user從某個網址去request video 說想要什麼網站的什麼影片
+    這個request是從client透過app用HTTP發起(initiate)的 
+step2: user透過這個網站的DNS server去把domain name轉成server address 
+    //這是要找出哪個伺服器能處理用戶的影片請求
+step3: DNS的回應會包含指到DNS server的URL //因為CDN有更接近用戶的伺服器
+    這是為了更有效率的content delivery 
+step4: 把得到的DNS的url再透過DNS轉成IP address去連接CDN server
+step5: client收到回傳的ip address後會去用HTTP請求video stream 
+//用到兩次查詢DNS 簡單來說第一次向DNS請求網站的ip 
+    然後用戶向網站送request 網站判定有更好的DNS server就回傳給用戶URL
+    用戶再拿URL去查DNS得到ip 再用這個ip去連線和請求video
+
+ex: netflix是用video upload to cloud(Amazon cloud)
+    content provider會上傳很多版本的video (不同bit rate)
+    對應到不同的網路狀況
+    CDN server會在不同location => 分散式讓delivery更快 
+    delivery取決於用戶的proximity(鄰近性)和bandwidth
+
+
+
+
+
+
+------------------------------------------------------------------------
+
+2.8 Socket programming with UDP and TCP 
+
+socket可以看成是application process和transport protocol之間的interface
+socket programming的目標是用socket去建立一個client/server application 
+    核心在建立連接 數據傳輸 抽象化網路通訊
+簡單來說socket programming就是用TCP或UDP預設好的function去做用到網路的程式
+
+socket type有UDP和TCP
+UDP(User Datagram Protocol): packet-based datagram 
+    //data都是獨立的單位 不在意順序
+TCP(Transmission Control Protocol): byte stream-oriented 
+    //data類似stream這種順序和完整性重要
+
+stream jargon(行話)
+    stream: 進出process的character sequence
+    input stream: 連接到input source ex:keyboard, socket 
+    output stream: 連接到output sorces ex:monitor, socket
+
+client/server interaction
+    client輸入input stream 傳到server，server回傳後到client的output stream
+
+
+Socket programming with UDP
+
+UDP特色
+    no connection: 不會setup connection 
+    no handshaking: 送data之前不會handshake
+    packet addressing: sender會在每個packet附上ip和port
+    receiver handling: receiver從packet的資訊可以得到sender的ip和port
+    unreliable transfer: data可能會lost或out of order(亂序) 
+    application viewpoint: 提供server/client之間unreliable transfer
+
+Server initialization 
+    server socket creation
+        server socket creation: create socket
+        Parameter: SOCK_DGRAM
+        significance: 用來標示socket是給UDP的
+    port binding: server會bind(綁定)一個特定的port 讓data不會跑錯地方
+
+Client initialization
+    client socket creation: client創建自己的socket 一樣用create socket 
+    parameter: SOCK_DGRAM 
+    server address specification
+        client preparation: client準備好送data
+        server address: 用來特定server ip和port
+
+Data exchange 
+    client送data: 送message到server 不用建立connection 不用handshaking
+    server接收data: 接收到的資訊包含client address/port 可以用來reponse 
+AF_INET: 用IPv4做底下的network communication 
+
+Import socket library: 通常會是python socket library
+    提供了socket programming functions 
+create UDP socket => socket() 
+特定datagram type => SOCK_DGRAM 
+用variable存 => 指定socket給serverSocket
+
+Bind socket to local port: 可以指定socket是在哪個Port用的
+loop=> 可以選擇是infinite loop讓server一直run
+    也可以是listen & respond =>一直listen 需要用到時resonse client request 
+receive message from client: 接收client訊息 包含message和client的address
+可以對收到的message做調整
+sendto()可以用來送modified message 
+送message時要attach(附上)client address 
+print用來顯示server response 
+close()用來關閉socket
+
+
+TCP socket programming 
+
+client要contact running server
+server需要有個oprn socket隨時準備拿來connection
+create TCP socket需要特定server IP/port
+建立connections client用TCP socket建立連線到server
+
+server每次都要建立新的socket給每個client connection
+用多個不同port number去管理multiple clients 
+
+從application的角度看
+reliable transfer, in-order delivery, byte-stream 
+
+TCP Server process
+server會需要兩個socket 一個welcoming socket 一個connection socket
+client會需要一個 client socket去initiate communication 送request給server
+
+幾個重點
+1.setup welcoming socket: welcoming socket會一直listen 看看有沒有request
+2.Complete handshake: server接收到request以後做three-way handshake 
+    確認後establish connection 建一個connection socket 
+    每個新的connection就會去建立一個新的connection socket
+3.Handle multiple clients
+    welcoming socket繼續負責listen new connections
+    connection socket負責communicate with 特定的client
+4.three way handshake是在data exchange前 
+    connection parameter用來確保雙方同意connection settings
+5.TCP data exchange通常是以bytes為單位
+    有一些server有queue handling可以管理多個connection request
+
+------------------------------------------------------------------------
