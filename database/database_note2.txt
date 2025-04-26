@@ -1,0 +1,1036 @@
+record structure
+
+content
+1. Secondary Storage Device
+2. Placing File Records on Disk
+3. Operations on Files
+4. Primary File Organization 
+
+DBMS(Database Management System) 用來管理DB
+
+
+Physical Database Design
+根據app的requirement需求選擇適合的data organization techniques
+儲存在disk上的資料會被組織成files of records
+1.Primary file organization 
+    在講record實際怎麼儲存在disk上的 和 record怎麼被access
+2.Secondary file organization
+    在講怎麼快速的access record (用index file)
+
+-------------------------------------
+
+Secondart Storage Device
+
+Storage Hierarchy 速度快到慢 小到大
+1.Primary storage 
+    ex: cache, main memory
+2.Secondary storage 
+    ex: flash memory, disk
+3.Tertiary storage 
+    ex:optical disk tape
+
+Primary Storage
+    CPU可以直接操作 速度快 storage capacity很有限 關機或crush資料會不見
+Secondary storage 
+    CPU不能直接操作 速度比primary慢但cpacity大一點 成本更低 
+    資料會被複製到main memory
+Tertiary storage 
+    通常是用來大量/長期儲存資料的 速度最慢 最大 成本最低 通常用來離線儲存
+
+modern computer的memory hierarchies
+1.Cache memry (static RAM) 高存取速度容量小 不需要定期刷新
+2.Main memory (dynamic RAM) 較慢 容量較大 會定期刷新
+3.Flash memory 速度快 不揮發(nonvolatile)  定期刷新
+4.magnetic disk 
+
+
+disk是有讀寫頭 圓狀 中間為軸心轉
+seek time: 找到讀寫頭要放到的track需要的時間
+latency time: 找到以後轉磁碟到正確位置需要的時間
+block transfer time: 傳data的時間
+
+data access time = seek time + latency time + transfer time
+最耗時間的是locate data也就是seek time 
+快到慢 seek time > latency time > transfer time
+
+想要讓data access更有效率有幾個方向
+1.buffering of data
+2.organization of data on disk 
+3.disk scheduling 
+4.prefetch 
+5.log disks
+6.SSD for recovery
+
+Buffering the Blocks
+    原本單一個buffer同一時間就只能做一件事(I/O或processing) 增加buffer就可以
+    ABABAB這樣輪流做 一個人在I/O的同時 另一個可以去processing 
+
+Disk scheduling 
+    當想要retrieve多個block的時候 怎麼去排順序
+    SCAN=>處理路上遇到的所有請求
+
+RAID是利用多個便宜的磁碟達到虛擬儲存系統的效果
+兩個重點 addressing space和fault tolerance
+addressing space 
+    parallelism是同時可以處理幾個操作
+    concurrency是同一時間段內可以處理的操作數量
+
+-------------------------------------
+
+Placing File Records on Disk 
+分成固定長度fixed-length records和variable-length records
+fixed-length record固定在那些位置開始那些欄位
+variable-length record 不固定開始點 欄位之間用separator characters隔開
+    最後面可能有terminates record代表結束
+
+Record Blocking
+    一個block放多個record
+    當不能整除的時候會有空間浪費 兩種策略 spanned(允許跨區) unspanned(不允許跨區)
+    unspanned就會浪費但更快 spanned需要額外的pointer增加成本
+
+Allocating File Blocks on disk
+1.Contiguous allocation
+    放在連續的位置
+2.linked allocation
+    不連續放 每格子用指標指到下一個
+3.linked clusters allocation 
+4.index allocation 
+    拿一格存index 用一個表去對應存取順序
+
+-------------------------------------
+
+Operations on Files 
+
+主要有兩個operations: retrieval和update operations 
+set-at-a-time operations: FindAll, FindOrdered, Reorganize 
+
+
+Primary File Organization
+
+File Organization在把data組織成record, block, access structure 
+primary file organization: data file 
+secondary file organization: index file
+
+static/dynamic file
+static file: 很少update到
+dynamic file: 經常update的
+
+Primary File Organization
+Heap file: 
+    照順序的insert 所以很快 執行的順序照放入的順序 delete會很慢
+Sorted file:
+    ordered/sequential files 
+    順序排好以後用binary search
+Hashing file:
+    分internal hashing和external hashing
+    insert, delete, find都是constant time
+    有固定table size的array, hash function
+
+Hashing
+collision: 兩個key hash到一樣的value
+overflow: collision且cell full
+static hashing: 沒有collision的hashing
+
+rehashing: 找其他數字%  ex:原本是k%7 變成k%11
+external hashing: hash完的結果再hash
+
+dynamic hashing: hash function會變化
+    extendible hashing
+    linear hashing
+
+結論
+data access unit: block 
+data access time = seek time + rotation latency time + block transfer time
+data organization on disk 
+    fixed/variable length record 
+    spanned/unspanned record blocking 
+    block allocation 
+    primary file organization 
+        heap, sorted file, hashed file 
+    secondary file organization 
+
+--------------------------------------------------------------------------
+
+複習 physical database design
+重點在storage organization 怎麼儲存大量的data
+    根據app的需求決定適合的data organization (最能符合application requirement的)
+Primary file organization::
+    record實際怎麼放在disk
+    record怎麼被access (primary key相關)
+Secondary file organzation:
+    怎麼有效率的access檔案的record 
+
+Heap files: 按照insert順序放的 unordered files ， insert效率高 delete很慢 
+Sorted files: ordered files，可以用binary search，insertion deletion modifying cost
+    當有primary index時會使用
+Hashing files: 分為internal hashing, external hashing 
+
+開始
+index可以想成是一個快速查詢的表 entry是他的單位(類似database中的record代表一條紀錄)
+
+index structure: 
+    為了提高searching的速度
+    在indexing field上做定義
+    用list of pointer儲存index field上的value
+    value在index中是排序好的
+    binary search on index file 
+primary index: 唯一, 物理結構, 一定是key, 有排序過
+Clustering index: 不用唯一, 物理結構, non-key, 有排序過
+Secondary index: 不用唯一, 不適實際database儲存物理結構, 沒排序過
+    一個file只能有一個primary或clustering index 不能同時有兩個
+        因為這兩個是指實際儲存database的方式
+    一個file可以有多個secondary file 
+    primary和clustering是實際database儲存的唯一的index
+    secondary index是為了加速 額外建立的用來查詢的index
+
+dense / sparse index 是用來形容一個index  //鍵值可以想成是資料表的key attribute
+    dense index是這個index包含所有鍵值(search key)
+    sparse index只包含部分鍵值(search key)
+    primary和clustering都是nondense
+
+Primary index: 
+    排序好的file上面做快速查詢的表格
+    一定是2個field組成: ordering field和pointer ，ordering field類似用來當查詢編號
+         每個index都是<ordering field, pointer to block>
+         #(entry) = #(block of oredered file) //這裡是講每個entry對應到一個block 但
+            block可能會被重複對應 block可以想成是一個資料的區塊
+    anchor record(block anchor)是指block裡的第一個record
+    insertion和deletion的問題:
+        index structure會被改變 anchor也會被改變
+    解決方法:
+        insertion: 用unorder overflow file 或用linked list
+        deletion: deletion markers
+
+Clustering index:
+    排序好的non-key field構成的 ex:用部門id
+直接跳到比較 會好理解一點
+    primary index更像是把唯一編號排序好以後塞到block裡面
+    clustering更像是分組之後盡量把同組的去放一起 具體上會不會完全照組別分會看實作
+clustering在insert和delete後仍然會改變index structrue
+
+Secondary index: 
+    放一些沒有排序過<indexing field, pointer>的組合
+    像是部門id=1的資料可能就獨立出來有一個secondary index
+    用來加速查詢 更快的原因不是排序帶來的搜尋效益 而是資料範圍比較小
+    key和non-key只是一定不會指到相同值和可能指到相同的值而已
+
+
+-------------------------------------
+
+multilevel index 
+當索引大小變得非常大 直接search的效率會很低 所以會想用多層次的index結構
+分成第一層first level和second level
+    first level比較高層 用來放較低層index的pointer
+    second level比較低層 用來儲存實際data
+
+ISAM是一種基於index的檔案存取方式 針對primary key建立sequential file和多層的index
+    first level是cylinder(柱面) index: 把所有的資料分成多個logical block 
+        first level index會記錄每個cylinder的anchor record(該block中最小的值)並
+            指向第二層的index
+    second level是track(磁道) index: 儲存指向實際data的pointer 
+    ex:
+    1	Record A
+    2	Record B
+    10	Record C
+    11	Record D
+    20	Record E
+    30	Record F    
+    分成三個cylinder:
+        cylinder 1: 1, 2, 10
+        cylinder 2: 11, 20
+        cylinder 3: 30
+    第一層index又稱為cylinder index 存anchor key和second level pointer
+        anchor key 1: 指到cylinder 1
+        anchor key 11: 指到cylinder 2
+        anchor key 30: 指到cylinder 3
+    第二層track index 存key和data pointer
+        cylinder 1  裡面有 key 1  指到Record A
+                    裡面有 key 2  指到Record B
+                    裡面有 key 10 指到Record C
+
+
+-------------------------------------
+
+
+Dynamic multilevel indexes using B+-trees
+
+B+ trees of order M : order M代表一個節點可以往下長M個子節點
+    non leaf節點最多可以有M個children 節點中最多可以有M-1個indexed value(往下search時用)
+        所有的leaf都在同一個depth 方便查詢 leaf之間透過pointer連接 指到下個同depth的leaf
+    ex: 節點要存兩個東西indexed value和children的pointer
+        indexed value:(k1,k2,...,kM-1)這些代表children的範圍
+        pointer: (P0,P1,...,PM-1)
+            P0指到<k1的，P1指到在k1到k2之間，PM-1指到>=kM-1的 
+        或許可以想成他是P,K,P,K這樣相間的結構 Pointer就會指到符合兩側indexed value範圍的
+        範圍通常是大的那邊有= Ki-1 < X <= Ki
+
+B+ tree find: 從root開始 重複找符合範圍的(ki < K < ki+1) 如果符合範圍就往Pi指的node走
+    一直到走到leaf node會停 最後binary search 那個 leaf node 
+
+b+ tree insertion: 走的路和find的方法一樣 到leaf後放到正確的位置
+    如果leaf node overflow 就 split然後往上放 split時盡量切一半
+    ex: M=4 某個leaf node:31,41,43,46滿了 就切成 31,41 和 43,46 ，往上放41到indexed value
+    如果split往上的動作不是在leaf進行 就不需要讓下層繼續保留往上送的indexed value 
+    ex: 在non-leaf發生overflow 24,26,41,43 這時候選擇26往上 下層剩下兩個24和41,43
+        這裡的26就不需要保存在下層的index valued中
+
+b+ tree deletion: 和find的路徑一樣 到了leaf node以後刪掉data 
+    如果leaf node underflow 就會merge起來往上
+
+
+-------------------------------------
+
+
+Multiple dimensional Index
+
+想要處理高效的處理多維數據 ex:地理位置數據 多屬性查詢 需要去考慮多個維度上的分布特性
+1. Ordered index on multiple attributes 
+    多個屬性按照特定的順序排列 建立ordered index 
+    排序方法是先按照第一個attribute排 再按照次級attribute排
+    e.g. index on composite key (age, salary) 先照age排再照salary 
+    – (age=25, salary=60),
+    – (age=25, salary=400),
+    – (age=30, salary=260),
+    – (age=45, salary=60),
+    – (age=45, salary=350)
+    – (age=50, salary=75),
+    – (age=50, Salary=100)
+    只對第一個attribute的query效率高 其他屬性的查詢效率低
+
+2. Partioned Hashing 
+    把多個屬性做分區(partition) 不同的數據放在不同hash bucket中產生部分的address
+    bucket address是這n個address的concatenation
+    簡單來說把所有dimension的attribute分開來做hash產生出部分的address 
+        再把這些address合起來當作分類的標準
+    ex:想要hash (age, salary) 其中1bit(代表mod 2)存age 2bit(代表mod4)存salary
+    這樣會有
+    000: (30,260) (50,100)
+    001: (70,101)
+    010
+    011
+    100
+    101
+    110: (45,350)
+    111 
+    適合用來處理等值查詢(equality queries) ex: salary=100 age=45之類的
+        如果是範圍的效率就會很低 ex: salary>200
+
+3. Grid files (網格)
+    先把multidimensional space切割成grids
+    每個dimension中grid line會把空間分割成stripes(條紋)
+    如果point落在grid line上會取lower boundary的stripe 
+    每個dimension的grid line數量(#grid lines)不同
+    ex: salary和age就可以想成是一個平面 兩個dimension分別可以有自己切grid line的標準
+        像salary: 0 90k 225k 500k    age:0 40 55 100 這樣就切成了3*3的grid 
+        每個資料就看各個dimension在哪個範圍內放進去
+    支援等值查詢和範圍查詢
+    缺點是當data分佈很亂的時候 grid會變很稀疏 導致儲存浪費
+
+    Operations on Grid Files:
+        Lookup: 用每個dimension找到符合的範圍 就知道是哪一組 再從裡面search
+        Insertion: 如果overflow就增加bucket ， reorganizae structure 
+            可以選擇增加或移動grid line 選best split line 
+
+4. kd-Tree (k-dimensional trees)
+    K-dimensional的binary search tree 
+    每一層根據其中一個attribute的value分成2 parts 可以重複用同一個attribute
+        不會連續兩個node用同一個attribute做分組
+    ex: 
+    root    salary 150
+    第一層  age 60  |   age 47
+    第二層 salary 80 | (70,110),(85,140) | salary 300 | salary 500 
+    可以像這樣一直往下長
+
+    operations on kd-Tree 
+    1.Lookup : 類似binary search tree做的事 每個節點make a decision一直到leaf 再找
+    2.Insertion: 類似lookup的步驟 如果到的leaf還有空間(room)就insert data 
+        如果空間滿了就split block 
+
+5. Quad-Trees 
+    就是把空間化成4個子區域的tree 每個節點就是一個區域 再往下分為4個子節點
+        一直到節點數達到一定條件或深度到一定條件
+        通常就是單個square中的#(points)超過square能容納的上限 就再切4個
+    適合在二維空間中的範圍和點查詢 適合用在地理空間應用 ex:地圖
+
+6. R-Tree (region tree)
+    可以想成是multidimensional的B+ tree
+    想成是一個平面 有很多長方形 框住的範圍就是裡面value的範圍 這些長方形可能重疊之類的
+    從要找的point在哪個長方形內判斷位置
+
+    operations on R-trees 
+    where am I query: 從root開始遞迴的去找包含那個point的sub-region
+    Region query: 這是在找和某個query region相交的所有region 一樣從root開始 
+        遞迴的去找 因為可能會跟多個區域相交 要逐一檢查
+    overlap region: 是指重疊的region 越多重疊的query的效率越差 
+        越多overlap代表需要越多路徑來做query
+        最小化overlap的範圍可以提高查詢效率
+    insertions: 一樣從root開始 選擇需要最少擴展的子區域
+        如果沒有子區域可以去調整邊界 擴大子區域來容納
+
+    重點是最小化overlap 、 insertion要選擇最適合的子區域 、 可以用R+ tree或R* tree改良
+
+
+conclusions
+1. index是access structure 為了要更好的efficiency 更快的從data file retrieve record 
+2. ordered single-level index types: 包含primary, clustering, secondary
+    primary,clustering是實際儲存的結構 一個是排序好放進去 另一個是同組盡量放一起
+    secondary是另外建一組 沒排序 挑符合條件的小範圍的資料另外存一份 用來加速查詢
+3. multilevel index可以用B+ tree implement
+    B+ tree結構 operation
+4. multiple key access method 
+    Ordered index, Partioned Hashing , Grid files, kd-Tree, Quad-Trees, R-Tre
+
+
+--------------------------------------------------------------------------
+
+
+Query Processing 
+這裡在講查詢處理(query processing)的每個步驟
+
+1.scanner: identify language token
+2.parser: 檢查syntax(語法)
+3.validation: 檢查attribute和relation name和semantics(語義)是否正確
+4.Intermediate(中間) form: 生成query tree和query graph
+5.query optimization: 選擇合適的execution strategy(執行策略)
+6.code generator: generate code來執行
+7.runtime DB processor: 跑code來產生query結果
+
+一開始的Query會是用high level language 
+經過123以後會變成intermediate form of query (4)
+intermediate form會再做5變成execution plan 
+execution plan經過6變成實際執行用的code (code to execute query)
+code to execute query用7產生出最後query的結果
+
+簡單來說一開始是high-level language query
+    經過一些檢查以後轉成intermediate form query 
+    由query optimizer去做query optimize 找出適合的execution plan 
+    再由code generator去產生實際的code 最後execute query產生結果 
+
+
+Transforming SQL Queries to Relational Algebra
+
+SQL query -> query tree 
+    對uncorrelated(無關聯) query: 會先把query decompose成query block 
+    query optimizer分別對每個block選擇一個execution plan 
+    ex: SELECT Lname, Fname
+        FROM Employee
+        WHER Salary > (SELECT MAX(Salary)
+        FROM Employee
+        WHERE DNo =5)
+        就會被切成outer block和inner block 
+        outer block
+            SELECT Lname, Fname
+            FROM Employee
+            WHERE Salary > c
+        inner block 
+            SELECT MAX (Salary)
+            FROM Employee
+            WHERE Dno=5.
+
+    correlated nested query很難optimize
+    ex:
+        Select E.Fname, E.Lname
+        From Employee as E
+        Where E.SSN in (
+        Select ESSN
+        From Dependent as D
+        Where E.Fname = D.Dependent_Name
+        and E.Sex = D.Sex);     
+
+-------------------------------------
+
+Basic Algorithm for executing query operations 
+
+Relational algebra的操作
+1.對RDB operations: select, project, join 
+2.對set operations: union, intersection, set difference, cartesian product 
+3.其他: order by, aggregation (group by)
+
+selection分為三種 simple selection, conjunctive selection, disjunctive selection 
+
+simple selection: 
+1.linear search
+2.binary search: 針對ordered file on search attribute 
+3.equality search: 可以用hash ex: hashed file, hash index
+4.equality search和range queue用primary index, clustering index, secondary index 
+    都不錯 看情況選擇
+5.當query有關a set of value就適合用bitmap index 
+
+Conjunctive selection: 多個條件用AND連接的查詢
+    ex: SELECT SSN, DeptName
+        FROM Employee
+        WHERE EmployeeName=‘Brown” AND DeptNumber=5;
+    1.individual index: 對每個條件先分別使用index 再合併結果
+    2.composite index: 如果有multidimensional index涵蓋所有條件就直接使用
+        ex: multidimensional index是只像是前面的kd tree, grid files之類的
+            多個一起處理比單個索引有效率
+    3.record pointer intersection: 先用primary index取第一個attribute符合的
+        再用secondary index取第二個符合的 最後取交集(intersection) 
+    
+    1和3的差別: individual是把每個attribute分開找到他們符合的東西再去取交集
+        record pointer是類似淘汰機制 後面的只會去看前面檢查符合的項目
+        所以record pointer通常會比individual的效率更高
+        但也有例外是因為 record pointer的會需要儲存篩選後的結果再做下一步 可能反而更慢
+    查詢時的策略是當處理多個attribute時 盡量選擇fewest record的 減少後面的計算
+
+disjunctive selection: 多個條件用OR連接
+    ex: SELECT SSN, DeptName
+        FROM Employee
+        WHERE EmployeeName=‘Brown” OR DeptNumber=5;
+    當有任何一個condition沒有能用的index就會用linear或binary search  逐一檢查反而
+        更快且確保答案完整
+    每個condition都有能用的index才會分開處理 最後union
+
+
+projection要注意的是duplicate tuples要刪掉(eliminate)
+    可以sort完再刪重複項 或是 用hash
+
+
+Join: 連接多個表 包含inner join, outer join, natural join 
+nested loop join: 
+    Join(R, S)是去join R和S兩個table 
+        把R裡面的每一筆record tR去對S做join
+        也就對每個tR 檢查S裡的每一個tS是否有符合連接條件的項目
+        如果有就把tR tS組合成結果
+    簡單直接 小數據時適合用 複雜度(R*S) 數據大效率就低
+
+Index-based Nested-loop join: 
+    和上面的差別在於假設S的join attribute有index 
+    有了index R裡的每筆資料tR在對應S時可以使用index 複雜度就降低變成R*logS
+
+Sort-merge join:
+    假設R、S在join attribute上是order好的
+    用concurrent(並行) scan的
+    如果R、S沒先sort好 可以先sort再去join
+    可以想成R、S各有一個pointer 看哪一邊如果比另一邊資料小的話指針就會往後移動
+    如果值相等 兩個指針同時移動
+    (要小心連續重複的部分)
+
+Partition-hash join:
+    R、S會被切成M partitions 會用同一個partitioning hash function 
+    同一區的Ri只會和同一區Si join 
+    分成2個階段
+    1.partitioning phase: 對table按照join attribute做partitioning hash 
+        R、S的分組方式會一樣 ex: mod 4
+    2.probing phase: 前面分組完以後去比對同組的Ri、Si 相同的就是結果
+    ex: R:{3,5,10,12,18,23} ， S:{3,8,10,10,12,17,23,26}
+
+cartesian product沒什麼好優化的方法 所以optimizer會盡量避免用到
+
+
+-------------------------------------
+
+
+Union, Intersection: Sort-merge 
+
+union就是scanning and merge concurrently 
+    如果出現same tuples就只會保留一份
+intersection一樣是merge 只是變成兩個都有的才放進去
+
+
+Union, Intersection: Hashing 
+
+都一樣是用hash去做分組(ex: mod 4)
+比較時只需要去比較同組的
+Union(R, S): 放union 去除掉重複的
+Intersection(R, S): 同組內R、S都有的才被放進來
+
+
+external sorting: 通常是指order by, sort-merge algorithm, duplicate elimination
+    Order by會在where的條件後面
+    sort-merge是join的時候用的
+    duplicate elimination是project要用的
+基本上都是用sort-merge strategy 
+
+
+aggregation operations:
+通常是用在整個table上
+可以用table scan或appropiate index做計算
+dense index也可以用來count, average, sum等等
+index也可以用來count distinct
+
+group by:
+可以用sorting, hashing, clustering index 
+
+Conclusions
+Query processing
+Transforming SQL into Relational Algebra
+Algorithms for executing relational algebra
+¨ Selection
+¨ Project
+¨ Join
+¨ Union, Intersection
+¨ Aggregation
+¨ Ordered-By
+Indexing, Hash, Sort-merge
+
+
+--------------------------------------------------------------------------
+
+
+Query optimization
+重點在於怎麼把intermediate form轉成好的execution strategy
+要找到最佳的strategy通常很耗時 所以通常選擇reasonable effeciency strategy就可以了
+
+implement query optimization的方法
+1.Heuristic(啟發性) rules: 用固定的規則決定執行策略的順序
+2.estimating cost: 用估算的方式選擇cost最小的strategy
+3.semantic query optimization(語義查詢最佳化): 用DB中的structure constraint簡化查詢
+
+
+Using Heuristics in Query Optimization
+
+Query Tree
+
+Heuristic rule for query optimization: 
+    先做selection和projection再做join或其他binary operations 
+Query Tree的Heuristic optimization: 
+    Query parser會先根據SQL query產生initial query tree (還沒做過任何優化)
+    query tree可以想成是一種relational algebra的一種expression方式
+    同一個query結果可以用不同的query tree來做到 
+    Heuristic query optimizer:
+        將initial query tree(沒優化過的)轉成final query tree(優化過更有效率的)
+        rules for equivalence: 有一些操作可以讓query的結果不變 類似等價的algebra
+            可以用這些rule去改變query tree 類似更改查詢步驟但不影響結果
+        使用這些equivalence expressions把initial tree轉成final query tree
+
+
+General Transformation Rules: 
+    //σ是select π是project j是join X是cartesian project 
+1. cascade of σ 
+    σ可以分開做 => σ( <c1>and<c2> )(R)= σ<c1>( σ<c2>(R) )
+2. commutativity(交換律) of σ
+    σ<c1>(σ<c2>(R)) = σ<C2>(σ<C1>(R))
+3. cascade of π
+    π<L1>(π<L2>(R)) = π<L1>(R)
+    外層的project選出來的東西一定比內層的範圍更小 因為外層選的東西如果內層沒有會錯
+    所以等同於只保留最外層的project 
+4. commuting σ with π
+    select(σ)和project(π)順序可以對調
+5. commutativity of j and x 
+    R j S = S j R 。 RxS = SxR 
+6. communting σ with j(or x)
+    σc(R x S) = (σc(R))x S   
+        //當project的c只牽扯到一個table R  可以先對R project完再做join
+    σc(R x S) = (σc1(R)) x (σc1(S)) if c = c1 and c2
+67.要做join或 Cartesian product之前可以先把要的select/project拿出來 減少計算
+交集連集都有交換律 -沒有
+Join. Cartesian product 交集 連集都有結合律
+
+
+Heuristic Algebraic Optimization Algorithm  總共6個步驟
+step 1: 把原本合在一起的select拆開獨立出來
+step 2: 把select盡量往樹的底端移 因為越早做完select 浪費的計算越少
+step 3: 改變leaf node的順序 把限制較多的select移到最下面的leaf node
+    要確保leaf node不會導致cartesian product (join的條件必須正確的應用)
+        因為更改順序可能導致原本join用的attribute被project掉 導致join壞掉
+        join就會因此變成無條件的cartesian product 
+        //select不會影響 因為不影響attribute的數量 甚至還簡化了計算
+step 4: 把cartesian product和select結合成join
+    利用把σc(RxS)轉成RjS (以c為條件)
+    //把x和上面的σc合起來變成join
+step 5: 把project盡量放到最下面，創建新的project率先處理掉不需要的attribute
+    ppt p.29中的例子可以看到最後的目標是name而已 往下的tree只是在作條件的篩選
+    所以底下在做pnumber=pno的重點只有這兩個attribute 前面就可以先project掉 省略不用的計算
+step 6(不一定會有): 標記可以由single algorithm處理的subtree 
+
+簡單來說12先處理select(盡量往下放) 3調整leaf node順序(要注意join不要退化)
+    4把select和cartesian product合成效率較好的join 5把project盡量往下放並用新的
+    project過濾掉不需要的attribute
+
+summary of Heuristics for Algebraic Optimization
+    先做可以reduce intermediate result size的operation
+    盡量早一點select來減少#(tuples)
+    盡量早一點project來減少#(attributes)
+    限制最多的select和join可以先做
+
+
+-------------------------------------
+
+Using Selectivity & Cost Estimates in Query 
+
+Cost-based Query Optimization 
+    可以把查詢最佳化看成是一種優化問題 透過search solution space 去找到最低成本的方案
+    使用cost function來做估計 (dynamic programming) minimize cost function
+    cost function會是estimate的而非實際的
+    比較適合用在compiled query (在query執行之前就完成最佳化的情況)
+
+cost of executing a query
+¨ Access cost to secondary storage
+¨ Storage cost
+¨ Computation cost
+¨ Memory usage cost
+¨ Communication cost
+
+當一個query用到一堆join再一起 可以盡量用left-deep tree的執行的方式
+    方式， 具體要怎麼排是用dynamic programming去找比較好的方法
+    這裡是query optimizer用這種結構去保證join的執行順序
+
+Semantic query optimization 
+用查詢的語義和database的內在邏輯做重寫和簡化來提高效率
+
+Displaying Query Plan 
+很多RDBMS有可以display execution plan的機制 可以display optimizer執行的策略
+EXPLAIN <query> 直接用這個指令在SQL上可以得到plan
+
+
+Conclusions
+¨ Query Optimization
+¨ Query Tree & Equivalence-Preserving
+¨ Heuristic query optimization
+¨ Cost-based query optimization
+¨ Semantic query optimization
+
+
+--------------------------------------------------------------------------
+
+
+Physical Database Design & Performance Tuning
+
+outline
+    Physical DB Design 
+    Performance Tuning 
+        Tuning DB Design 
+        Tuning Query 
+        Tuning Index 
+
+Physical DB Design 
+    是在對DB file選特定的storage structure和access path(indexes)
+    為了要在不同DB application中達到好的performance 
+DBMS提供了一些不同的選擇給file organization和access path
+    clustering of related reocrds on disk blocks 
+    linking related records via pointers
+    types of indexing/hashing 
+選擇physical DB design的一些criteria(標準)
+    response time: 包含DBMS可以control的: access time 
+        和DBMS不能control的: system load, OS scheduling, communication delay 
+    space utilization: 用到的儲存空間包括DB files本身和path structure 
+    transaction throughput: 在peak condition(尖峰時期)時測量 確保交易效率
+對同一個conceptual schema在DBMS下 有很多種physical的實現方式(design alternatives)
+會影響怎麼design的factors
+    1.query和transactions的類型和頻率
+    2.query和transactions的時間限制
+    3.資料update的頻率
+    4.attribute的uniqueness constraint 
+
+Analyzing DB query(查詢分析)
+    看query會access到哪些file
+    用到select或join的attribute是固定的
+    query目標要retrieve的attributes
+    要拿來select或join的attribute都可以當作index structure的candidate(候選人)
+
+Analyzing DB transaction(交易分析)
+    會被update的file
+    每個file會用到的operation (insert, update, delete)
+    delete或update時select用的attribute 
+    update會改變的attribute
+
+80-20 rules: 大約80%的processing是由20% query或transaction來的
+    可以想成如果資料庫系統有100個query樣式 其中20個最常用的query就佔了80%的系統負擔
+    專注在優化這20%的重要查詢就可以有效提升系統效率 不用過度在意剩的80%
+    怎麼知道這20%是什麼? 可以用統計的 找最常執行或耗時的query
+
+time constraint方面對query和transaction分析
+    受time constraint影響很大的attribute可以優先當作primary index structure 
+frequency方面對很常update的file要盡量用最少的access path
+uniqueness constraint方面: 某個attribute需要在範圍內有唯一值
+    對有uniqueness constraint的attribute去建立index是一種高效的作法
+    提高了查詢速度還簡化了insertion和update時的唯一性檢查
+
+-------------------------------------
+
+Performance Tuning 
+
+Tuning就是一直在monitor(監控)和revise(改進) physical DB design
+目標是讓app更快 減少query/transaction的response time 改善transaction的throughput
+
+Tuning會用到的information statistics
+1.talbe裡record的數量
+2.attribute裡distinct value的數量
+3.storage statistic
+4.某個特定的query/transaction在interval time用到或執行的次數
+5.I/O device performance
+6.Query/transaction processing 
+7.Lock和log
+8.index紀錄
+
+
+Major Task of Tuning : 三種tuning: database design, Query, indexes 
+
+Tuning database design:
+    一些attributes很常被用在一起的table可能會被join(denormalized)在一起
+    當table到3NF或BCNF 會有不同的alternative deisgn choice 
+    Vertical(垂直) partitioning: 把不同attribute分割成不同table
+    ex: Employee(SSN, Name, Phone, Grade, Salary)
+        切成 Emp1(SSN, Name, Phone), Emp2(SSN, Grade, Salary)
+    Horizontal(水平) partitioning: 將table按照不同條件分割成多個表
+    ex: prodcut table可以按照不同product切成不同table 
+    table內的attribute可以在不同地方出現 即使會有redundancy和potential anomaly
+
+阿里巴巴: 預先按照過往的紀錄分配不同商品在不同地區的 避免不同步的問題
+
+Tuning Query:
+    query的performance主要受怎麼選index影響
+    analyze到效能差的query以後可以tuned(調整)
+    2個代表需要tune query的狀況
+        1.當query需要太多disk access 
+        2.query plan有太多沒用到relevant indexes
+    很多query optimizer在這些情況不會用index
+        1. arithmetic expression     2. 不同size或precision的數字比較
+        3. null comparisons          4. substring比較
+    用IN的nested query如果attribute不常被用到可以優化成用and 就不用nested query 
+    ex:
+        SELECT SSN
+        FROM Employee
+        WHERE Dno IN
+        (   SELECT DNumber
+            FROM Department
+            WHERE MgrSSN = ‘333445555’)
+        轉成
+        SELECT SSN
+        FROM Employee, Department
+        WHERE DNo=Dnumber AND MgrSSN=‘333445555’
+    
+    where condition可以被重寫成multi-attribute index (composite index)
+    ex:
+        SELECT Region, Product, Month, Sales
+        FROM Sales
+        WHERE Region = 3 AND
+        ( (Product BETWEEN 1 AND 3) OR
+        (Product BETWEEN 8 AND 10) );
+        轉成 
+        SELECT Region, Product, Month, Sales
+        FROM Sales
+        WHERE ( (Region = 3) AND (Product BETWEEN 1 AND 3))
+        OR
+        ( (Region = 3 ) AND (Product BETWEEN 8 AND 10));
+
+Tips of Tuning Query:
+    有一些distinct是多餘的 可以避免的也不改變結果 //因為distinct通常要搭配sort
+    有一些temporary result tables是不需要的 可以把多個queries弄成一個query
+    有一些correlated queries可以轉成temporary result tables
+    避免string comparison
+    ex: 當要用join的時候假設可以用ssn或name當條件 那會選擇ssn而不是name
+        因為string comparison效率差很多
+    transformations:
+        1.NOT條件可能可以被轉成positive expression 
+        2.一些用到in, all, any的select可以用join取代
+        3.如果2個table做equality join 用到的attribute可以重複給其他table用
+    用FROM時 table的順序可能會影響join processing
+        交換順序讓小的table被scanned 較大的table用適合的index 
+    nested query的效率很差
+    view不一定比較好(overkill): query直接執行的效果有機會比用view好
+
+Tuning Index
+複習index 有primary, clustering, secondary
+
+Design Decisions about Indexing
+    一個attribute要不要當index: 是key, query會用到, join attribute
+    index到的attribute可以單個也可以多個
+    clustered index: one per table 
+    tree index內是否要hash index: 看有沒有range queries (hash對range queries幫助小)
+    dynamic hashing: 看file會不會成長或縮小的很快
+
+tuning index的原因:
+    1.有些query沒有好的index會浪費非常多時間
+    2.某些index沒有被很好的利用
+    3.某些index很常change的index會導致excessive overhead 
+tuning index的目標:
+    1.動態評估需求
+    2.丟掉或建立新的index
+    3.reorganize indexes來最佳化performance 
+
+重點:
+    1.drop或build index是overhead
+    2.當index在drop或create時會suspend updating(調整index時不能update)
+    3.rebuilding index可能改善performance
+        ex: 太多deletion on B+ tree會導致overflow space的空間浪費
+    4.重建一個clustered index相當於要reorganize整個table
+
+Conclusions
+¨ Performance Tuning
+¨ Tuning Database Design
+¨ Tuning Query: rewritten query
+    – Utilize index
+    – Avoid unnecessary disk I/O (temporary table)
+    – JOIN
+    – VIEW
+¨ Tuning Index
+
+--------------------------------------------------------------------------
+
+Transaction processing 
+
+Transaction processing system: 一個很大的DB 有很多並行(concurrent)的user
+    在執行database transaction 
+    需要很高的availability(可用性)和fast response time
+
+Transaction 
+    DB processing的logical unit
+    每個transaction都包括1個以上的DB access operations 
+    ex:從帳號x轉帳到帳號y
+        read(X);
+        X=X-N;
+        write(X);
+        read(Y);
+        Y=Y+N;
+        write(Y);
+
+interleaved processing:現代的電腦會去優化程式 time-sharing system / interleaved processing 
+如果transaction的指令一次全部執行完 => serial processing
+transaction和其他的transaction可能交錯執行 => interleaved processing 
+
+Transaction processing的兩個重點
+1.concurrency control : lost update, temporary update(dirty read), 
+    incorrect summary, unrepeatable read 
+2.recovery:
+
+
+
+
+
+
+
+
+
+concurrency control
+
+Lost update problem: 一個程式在執行的過程中還沒把已經操作的資料寫進去 就被其他程式讀取了
+ex:        X=X-N //扣款 這時扣款後的X還沒被寫入
+另一個程式做read(X)就會讀到錯誤的X 最後write(X)時就會產生錯誤 (後面的更新覆蓋了前面的更新)
+
+Temporary update problem: 一個transaction更新了某個data但還沒有commit出去 理論上其他的
+    交易不應該看到更新後的數據內容但另一個transaction提早讀到了這個未提交的data 導致錯誤
+
+所以lost是讀到該更新但還沒寫入的data導致錯誤 temporary是太早讀到還沒做完的transaction導致錯誤
+ex: A在做提款 已經做完read(X);  X=X-N;   write(X); 還沒改Y
+    B這個時候去read(X)對X做存款 一樣做完完 read(X);  X=X+N;   write(X);
+    這時A再read(Y) 會發現x已經錯誤了導致fail 
+
+Incorrect summary problem: 計算數據的總和或聚合值時 另一個transaction執行到一半導致錯誤
+ex: 要計算X+Y 但這時候X剛好要給Y錢 又剛好算的時候是X已經扣款寫入 但Y還沒加上去 就會錯誤 
+
+unrepeated read problem: 一個transaction讀兩次同樣的東西 結果數據不一樣
+    可能是讀完第一次後進到了另一個transaction把值改掉了
+
+solution for concurrency problem 
+用lock
+ex:
+writelock(X)
+read(X);
+X=X-N;
+write(X)
+unlock(X)
+(中間可以混其他交易)
+writelock(X)
+read(Y);
+Y=Y+N;
+write(Y);
+unlock(X)
+//只需要lockX就好是因為lock X就能夠確保其他transaction無法進行了
+    在read write的前後lock就好 前後lock就能保證資料正確了 (盡量把lock的範圍縮小 減少效能影響)
+
+Recovery problem 
+需要recovery是因為出現failure
+1.computer failure(system crash)
+2.Disk failure
+3.Transaction or system error (overflow, interrupt)
+4.Local errors or exception conditions detected by the
+    transaction (e.g. data not found )
+5.Concurrency control enforcement (deadlock)
+6.Physical problems
+
+transaction states 
+    active:剛開始transaction 還在讀寫 結束transaction後
+    partially committed 最後committed
+    正常情況下要committed以後才terminate
+    從active或parially committed直接就terminate就會導致failure
+
+System Log
+    可以maintain log去記錄所有影響DB item value的transaction
+    log會存在disk上
+    log不會受到一般的failure影響 除了disk failure或嚴重災難
+    log會定期back up(備份) 
+
+    log會去紀錄: transaction的start, change value, read, 正確執行的transaction, 
+        aborted的transaction
+    undo, redo 
+    force-writing: transaction內會有一個commit point，當達到以後會強迫把log要寫到disk 
+
+ACID properties of transaction:
+Atomicity(原子性): 一個transaction要馬全部都有要馬全部沒有 像是如果錯誤時應該要恢復到像是
+    這個transaction完全沒執行過
+    這是transaction recovery subsystem的責任
+Consistency preservation(保持一致性): 資料庫狀態要一直是一致的 資料庫改變時
+    應該要從一個完全一致的狀態 轉移到另一個完全一致的狀態
+    這個是 DB programmer or 資料庫管理限制(integrity constraint)的責任
+Isolation(隔離性): 確保一個transaction在做交易時完全不會受到其他transaction影響 
+    這個是concurrency control subsystem的責任
+Durability (permanency) (持久性): 交易成功就會永久保存對資料庫的改變 即使發生故障也能修復
+    這個是transaction recovery subsystem的責任
+
+-------------------------------------
+
+Schedules & Recoverability
+
+Schedules of transactions 
+    把transactions operations做ordering
+    transaction Ti內的東西順序不能改變
+    不同transaction的話 在單個Ti的相對順序一樣的情況下 不同Ti之前可以interleave
+    partial ordering 
+為了recovery和concurrency control只會考慮下面這些operations 
+1. read_item(r)
+2. write_item(w)
+3. commit(c)
+4. abort(a)
+
+Conflict Operations 
+    兩個operation在schedule內是conflict的 if
+        他們來自不同transaction
+        他們access到同一個item x
+        至少其中一個是write_item(x)
+        //不同的transaction access到同一個item且至少有一個是write 就會是conflict的
+
+complete schedule:
+    一個schedule內有n個transaction T1,T2,...,Tn 會說他complete schedule if 
+    1. transaction內的所有operations都應該要出現在完整排程中
+        operation的最後要有commit或abort
+    2. 同一個transaction Ti內的operation順序不變
+    3. 對任意兩個conflicting operations如果會有衝突 就必須要在排程中規定好先後順序
+    完整排程是為了確保資料庫的一致性 正確性
+
+Recoverable Schedule
+    如果transaction commit以後 照理來說資料庫要永久保存變化 
+        達到一致性 不應該再需要roll back
+    a schedule S is recoverable if 
+        在S中對所有的transaction Ti 如果有更改到Ti的transaction存在 那更改到他的
+        transaction要先commit以後才會讓Ti commit 
+    recoverable的意義是對這個排程確保提交順序上的正確性 並確保發生錯誤時可以roll back 
+
+會有not recoverable的原因是因為 當有回滾發生時 假設回滾的是t1 
+如果前面有t2依賴於修改後的t1 那當t1回滾時如果t2沒有先回滾 
+就會變成t2可能read到被改過的t1 但t1已經變回改變前的樣子了 才導致的錯誤
+
+
+-------------------------------------
+
+Serializability of Schedules
+
+
+
+
+
+
+
+
+
+
+
+-------------------------------------
+
+
+
+
+-------------------------------------
+
+--------------------------------------------------------------------------

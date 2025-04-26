@@ -1,0 +1,1674 @@
+ppt 0  Database System
+
+Data base design + DBMS(DataBase Management System) Design
+
+Relational Data Model(關聯式資料模型)
+Database(資料庫)是多個table(資料表)的集合
+
+Table(資料表)是多筆record(紀錄)的集合
+每筆record都有相同的field(欄位)
+
+Field(欄位) 描述每筆record的attribute(屬性)
+    primary key:可以區別不同紀錄的一組field
+    foreign key:參考其他資料表的primary key的一組field
+
+database設計重點
+    有哪些資料表 
+    資料類型/範圍限制
+    不同table間的關係
+    協助database design的方法論(methodology)
+    database design對查詢效能(efficiency)的影響
+
+Data models
+Relational Data Model
+    1.Relational Data Structures
+    2.Relational Constraint
+    3.Relational Algebra
+Entity-Relationship Model
+    Entities + Relationship between Entitis
+
+Relational Constraints
+    1.Key Constraints
+    2.Domain Constraints
+    3.Entity Integrity Constraints
+    4.Referential Integrity Constraints
+
+
+Data models 高層到低層 是在說database設計的不同抽象層次 每一層有不同功能和重點
+1. Conceptual Data Models(概念數據模型)
+    database設計的最高層次 主要是描述業務需求 定義業務實體和他們之間的關係
+    不包含具體細節和儲存資料的方式
+    通常會用ERD(Entity Relational Diagram)或UML
+
+2. Implementation Data Models(實現數據模型) 又稱為logical data model(邏輯模型)
+    是把概念模型(Conceptual Data Model)進一步細化 設計更具體的數據結構
+    包含table key constraint等
+    設計人員根據特定資料庫管理系統(ex: MySQL)的需求 定義資料表間的關係
+    不包含底層儲存的細節
+
+3. Physical Data Models(物理數據模型) 最底層設計的細節
+    考慮實際儲存的方式和效率 包含索引、分區、控制等與性能相關的細節
+    提高資料庫存取速度 效率
+
+一般寫程式都只是在implementation層 考慮效能細節才會去看physical data models
+
+Conceptual透過ER to Relational mapping轉成implementaion data model
+implementaion data model透過DBMS轉成Physical data model
+
+Normalization(正規化) 把數據結構切得更小 更合理 減少重複數據讓結構更彈性 容易維護
+1st Normal Form
+2nd Normal Form
+3rd Normal Form
+Boyce-Codd Normal Form
+4th Normal Form
+5th Normal Form
+
+DBMS(DataBase Management System) Design 如何管理DB(database)
+storage Management query processing(處理查詢)等
+
+transaction processing =>交易到一半當機 需要recovery的機制
+concurrency control => 處理同步問題 (重複劃位)
+
+data分成structured data 、 unstructred data
+
+NoSQL(Not Only SQL)有很多種based
+document/key-value/column/graph based
+
+Database system = Database design
+
+
+-------------------------------------------------------------------
+
+ppt 1 Relational Data Model
+
+Data model分三層次
+Conceptual data model: 最高層的data model 
+接近end user怎麼perceive data的概念
+
+Implementation data model: 又稱為logical data model 
+通常會是user可以理解的方式呈現 但不會到很細節
+Data storage的detail會hide起來
+
+Physical data model: low level data model
+講data storage的detail 
+主要是computer specialists用的 end user不太會用到
+
+
+
+Relational data model是基於
+
+1. mathematical relation
+2. Set theory
+3. First order predicate logic
+
+Relational data model定義三個東西
+1. Relational data structure
+2. Constraint
+3. Relational algebra , relational calculus
+    relational algebra(關聯代數)是一種過程性語言(procedural language)
+        指定查詢的具體步驟 如何一步步的操作數據得到結果
+        ex:DBMS用relational algebra優化查詢
+    relational calculus(關聯演算)是一種聲明性語言(declarative language)
+        描述查詢應該得到什麼結果 不講具體的過程
+        ex:SQL 用relational calculus的概念去設計 描述結果不涉及過程
+
+----------------------------
+Relational data structures
+
+relational model concept 把relational model和數學(relation, set, logic)合在一起
+Relation: table
+tuple: row, record  //tuple在數學可以重複 在relational data model重複會當作同一個
+                    會有constraint禁止重複(key constraint等)
+attribute: column header, field
+Domain: 每個column的data type和value的限制
+
+
+Relation schema R: R(A1,A2,...,An)
+    由relation name R和一些attribute A1,A2,...,An構成
+    degree of R: n, #(attributes)
+Attribte Ai
+    在relation scheme R中對角色的命名
+Domain D    
+    一個set of atomic values
+    Atomic: each value in the domain is indivisible(不可分割)
+
+
+NULL values
+Null又有兩種情況
+1.Not apllicable(N.A.):
+    不符合選像 ex:男女 其他
+2.unknown: 可能是missing(ex:身高) 或 not known whether exist(ex:HomePhone不一定有)
+
+
+Domain, Attribute, Tuple & Relation
+A relation r(R)
+    r of relation schema R(A1,A2,...,An)
+    A1,A2,...這些是domain
+    a set of n-tuples r={t1,t2,...,tm}  //對應到m筆資料
+    每個t = <v1,v2,...,vn>  //每筆資料n個attributes (n tuple)
+    ti是element (在domain Ai下或是null value)
+    mathematical relation of degree n on domains D(A1),D(A2),...,D(An)
+    Subset of Cartesian product of the domains that define R:
+        r(R) 包含於 (D(A1) x D(A2) x ... x D(An) )  //這個只是在說所有可能的值
+        ex: D(gender)={M, F} , D(Grade)={1, 2, 3}  //record的所有可能/組合
+        D(gender) x D(Grade) = {(M,1), (M,2), ... , (F,3)}
+
+Characteristic of Relations
+1. tuples in a relation is not ordered (資料的順序沒有差 這裡說的是record順序)
+2. 一個record裡面的attribute也是沒有order的 資料庫是根據欄位的名稱來識別數據 無關排列
+    順序不影響邏輯 平常在輸入時照順序是為了一致性和方便
+3. tuple內的每個value都是atomic的(單一值) 不會有多值
+first normal form:
+    1)multi-values attributes 不允許一個欄位多值 要把多值的屬性分開到另一個表格
+        ex: (inta, intb, intc) 如果有一個(1,2,(3,4))
+        這樣原本的表格可能變成 
+        inta intb intc
+        1     2   null
+        創一個新表格
+        inta intc
+        1    3
+        1    4
+    2)composite attributes(複合屬性) 如果某個attribute可以由多個attribute組成
+        會把他們再拆成更簡單的attribute (ex:姓名拆成姓+名)
+    object oriented data model可以有nested relation 可以不考慮上面這兩個限制
+    normal form還是可以有NULL 
+
+interpretation of a relation(講relation要怎麼解釋)
+relation schema(關係模式):對table結構的描述和聲明 可以想成是類型的聲明/規則約束
+    可以看成是一種predicate(謂詞) ex:Parents(X, Y)表示X是Y的parent
+tuple是relation schema中的一個fact(具體實例) 
+    ex: (John, Alice)表示了一個John是Alice父母的
+relational model represents entity & relationships uniformly
+    entity和relationship都可以用relation表示
+relation schema的好處是實體和關聯可以用統一的形式呈現 結構和操作更一致
+ex: X      Y
+    Bob    Tom
+    Tom    Alice
+
+
+----------------------------
+
+Relational Constraints
+
+Constraint: relational database schema上的restriction
+1. domain constraints: 每個attribute必須符合定義的domain 
+    ex:data type, length, 合法值/範圍
+2. key constraint: 通常用來確保每個tuple唯一 (通常用primary key(主鍵)實現)
+    primary key由1個或多個attribute組成的集合 在table中要唯一且不能空白
+3. entity integrity constraint(實體完整性約束)
+    要求primary key不能為null 因為需要拿primary key來當唯一識別 用來區分每個record
+    為了一致性/完整性
+4. referential integrity constraint: 確保不同table之間的參考關係正確
+    通常是用foreign key(外鍵)實現 為了防止不一致的狀況
+    foreign key必須參考另一個table的primary key
+
+Domain Constraint
+    對於每個value of attribute Ai 必須滿足
+        1.要是atomic value (不能multi-value)
+        2.要在domain D(Ai)
+
+Key Constraint: 所有tuple必須要distinct 不能有兩個attribute完全相同的record
+SuperKey(SK): 任意兩個tuple(t1, t2)的superkey都滿足 t1[SK]!=t2[SK]
+    也就是可以用來當primary key的集合
+    所有relation都一定至少有一個default superkey (所有attribute的集合一定會是sk)
+Key(K): 是指minimal superkey
+    只要把minimal superkey K中的任一一個attribute移除就會變成不是superkey
+    可以想成是最簡潔的區分方法
+    candidate key(候選key): 滿足最小attribute條件的都是candidate key(候選)
+    primary key是從candidate key選出來唯一代表的 用來識別每個record
+ex: 學生id 課程id 成績的資料表中  key應該要是學生id+課程id
+
+Entity Integrity Constraint
+    primary key的value不可以是null   違反了就不能唯一識別了
+
+Referential integrity constraint
+Foreign key 用來在兩個table之間建立關聯
+    FK is A foreign key of R1 that references R2 if  
+        //FK是R1參考R2的foreign key
+    1. D(FK)=D(PK), where PK is primary key of R2 
+        //fk參考的domain要和被參考的pk相同
+    2. t1[FK]=t2[PK] 或是 t1[FK] is null
+        //t1有的t2一定要有 不然就是null代表不參考R2
+    foreign key也可以參考自己的PK
+
+Semantic Integrity Constraint(語義完整性約束)
+    更接近業務邏輯或是情境相關的限制 ex:employee薪水不能超過supervisor等
+    Constraint Specification Language(約束指定語言)
+        triggers: 特定事件發生時自動執行的程式碼 用於檢查和強制執行約束
+        assertion: 定義的條件約束 確保數值符合某些全域條件
+    static constraint(靜態約束): 限制資料的靜態值 ex:薪水不能低於最低薪資或高於主管
+    dynamic constraint(動態約束): 限制更新過程中的狀態變化 ex:薪水只能增加不能減少
+
+
+
+----------------------------
+
+Dealing with Constraint Violation
+
+integrity constraint不能在update operation後違反
+如果integrity constraint violation 解決
+    1. cancael造成violation的operation (REJECT option)
+    2. 仍然執行operation但會通知(inform)user
+    3. trigger額外的update讓violation改成正確的 (CASCADE, SET NULL)
+    4. 執行user-specified error-correction routine
+insertion可能造成的constraint violation
+    1.domain constraint
+    2.key constraint
+    3.entity constraint 
+    4.referential integrity
+deletion可能造成的constraint violation
+    referential integrity constraint
+    deletion的解決方法:
+        1.reject
+        2.propagate the deletion
+        3.把referencing attribute value改成null或是參考到其他valid tuple
+Update可能造成的constraint violation
+    如果update的attribute不是primary或foreign key
+        只需考慮domain constraint
+    如果update的attribute是primary key
+        因為update = delete + insert
+        所有的constraint violation都可能發生
+    如果update的attribute是foreign key
+        domain constraint, referential integrity constraint
+
+
+重點
+Relational Data Structures
+– Relation
+– Tuple
+– Attribute
+– Domain
+Relational Constraints
+– Domain constraints
+– Key constraints
+– Entity integrity constraints
+– Referential integrity constraints
+Semantic Constraint
+Constraint Violation
+
+-------------------------------------------------------------------
+
+SQL (Structure Query Language)
+是declarative language => 寫result 不特定過程
+based on relational calculus(關聯演算)在講聲明性語言
+比較relational algebra是過程性語言 user特定過程 順序 怎麼操作
+
+DDL(Data Define Language) in SQL
+SQL term
+    Table: reloation
+    Row: tuple
+    Column: attribute
+DDL support
+    CREATE
+    ALTER
+    DROP
+
+SQL schema(模式)
+    schema是一組相互關聯的database結構(table, constraint, view, domain)
+        共同組成的database應用程式邏輯結構
+    schema用來組織和分組同一個應用程式中的table和其他結構 使管理變得更清晰
+    schema是邏輯層級的資料庫分組
+    用三個部分組成
+    1.schema name: schema名稱 用來標示和區分
+    2.authorization identifier(授權標示符):指定schema的所有者/授權使用者
+    3.descriptor(描述符):描述schema中的每個元素 (table, attribute, constraint等)
+
+    其實就是常看到的類似用圖來表示資料庫內的關聯
+    包含table, attribute, primary key(底線), foreign key(箭頭)
+    類似一個範圍 開一個schema類似開一個檔案 然後在這個schema下建東西
+Catalog(資料目錄/數據字典)
+    資料庫中的集合 collection of schemas 多個schemas 儲存和管理資料庫的工具
+    catalog是database中頂層的結構   schema之間通常是獨立的
+
+
+CREATE TABLE  語法 
+CREATE TABLE Department
+(   Dname    Varchar(15) Not Null,
+    Dnumber  Int         Not Null,
+    MgrSSN   Char(9)     Not Null,
+    MgrStart Date Date   Not Null,
+Primary Key(Dnumber),
+Unique(Dname),
+Foreign Key(MgrSSN) References Employee (SSN)
+);
+
+1.attribute的宣告: 屬性名稱 資料類型 限制 ex: Dname  Varchar(15) Not Null
+2.primary key: ()內放主鍵 ex: Primary Key(Dnumber)
+    可以多個attribute結合成主鍵 ex: Primary Key (attribute1, attribute2)
+3.Unique: 表示()內的attribute值要唯一 ex: Unique(Dname)代表Dname不能重複
+    ()內一樣可以多值 (a,b)可以想成當作不能重複的tuple判定 (1,1),(1,2)這種沒問題
+    但不能(2,3) (2,3)這樣
+    重複就會報錯
+4.Foreign key: Foreign Key(外鍵) References table名稱 (被參考的屬性)
+    ex: Foreign Key(MgrSSN) References Employee (SSN)
+    Foreign Key (A, B) References OtherTable (attributeX, attributeY)
+
+Data Types & Domains
+Numeric: INTEGER(INT), SMALLINT, FLOAT, REAL, DOUBLE, PRECISION
+Character string: CHAR(n), CHARACTER (n), VARCHAR(n) //n用來指定長度
+Bit string: BIT(n), BIT VARYING(n)// 有VAR或VARY的都是可以變動長度的
+
+Boolean: 是3-value logic 包含 TRUE, FALSE, UNKNOWN
+時間: DATE //yyyy-mm-dd , TIME //hh:mm:ss , 
+ex: CREATE DOMAIN SSN_TYPE AS CHAR(9);
+
+
+Constraint語法
+Constraint 名稱 限制的內容
+ex:
+    CONSTRAINT Deptpk
+    PRIMARY KEY (Dnumber),
+    CONSTRAINT Deptsk
+    UNIQUE (Dname),
+
+DROP //可以DROP SCHEMA和TABLE
+
+DROP SCHEMA Company CASCADE; //無論還有沒有元素都把整個刪除
+DROP SCHEMA Company RESTRICT;//如果沒有元素才把整個刪除
+DROP SCHEMA Company; //通常會預設為RESTRICT的版本 類似保護機制
+    schema的restrict條件是裡面沒有element table的條件是不被引用
+
+
+Alter Table在做schema的改變
+    像是add或drop column， 改變column definition ， add或drop constraint
+ex:
+- ALTER TABLE Company.Employee ADD Job varchar(12);  //加一個column
+– ALTER TABLE Company.Employee DROP Address CASCADE; //drop column
+– ALTER TABLE Company.Department ALTER MgrSSN 
+DROP Default;  //drop definition
+– ALTER TABLE Company.Department ALTER MgrSSN SET
+DEFAULT “333445555”; //add definition
+– ALTER TABLE Company.Department DROP
+CONSTRAINT EmpSuperFK CASCADE;  //改變constraint
+
+
+前面是建表格相關的 包含了create, alter table 還有一些datatype的定義
+---------------------------------------
+
+這裡開始是查詢
+
+SQL DML Query
+
+SELECT <attribute list>
+FROM <table list>
+WHERE <condition>
+
+ex:
+Q0: Retrieve the birthday and address of the employee(s)
+whose name is ‘John B. Smith’
+Select Bdate, Address
+From Employee
+Where Fname=‘John’ And Minit=‘B’ And Lname=‘Smith’;
+
+ambiguous attribute name
+兩個table中有名稱相同的attribute 可以用table名稱.attirbute名稱 
+ex: where Department.DNumber=Employee.DNumber
+
+Alias (當有ambiguous name時可以用alias來做區分)
+Q8: For each employee, retrieve the employee’s first and last
+name and the first and last name of his or her immediate
+supervisor.
+Select E.Fname, E.Lname, S.Fname, S.LName  //自己和自己條件用alias
+From Employee As E, Employee As S     
+Where E.SuperSSN = S. SSN;  //利用employee的ssn=另一個employee的superssn來做到
+
+//As可以省略 From Employee As E 等同於 From Employee E
+
+umspecified where clause (沒有where的話會列出全部的組合)
+ex:
+Select SSN
+From Employee;
+
+同一個表格內的會以record為單位
+ex:
+Select SSN, superSSN 
+From Employee; 這樣就是正常一組一組record的概念輸出
+
+不同表格會是cross product(笛卡爾積)輸出
+ex:
+Select SSN, Dname
+From Employee, Department;
+
+如果想要同一個table做到cross product就要用到alias 自己cross自己
+ex:
+Select E1.SSN, E2.superSSN 
+From Employee E1, Employee E2;
+
+Asterisk(*) 用來回傳所有的attribute
+ex:
+Select *
+From Employee, Department
+Where Dname=‘Research’ And Dno=Dnumber;
+
+
+tables as sets
+
+Select all Salary //預設會是這種 all可省略
+From Employee;
+
+Select Distinct Salary //不會有重複的
+From Employee;
+
+
+SQL會把table當作multiset 可以有多個相同record 所以SQL是違反relational data model的
+原因是刪除多餘的set很耗資源, user requirement, 還有為了aggregate function
+
+
+Substring pattern matching的用法
+ex: Where Address Like ‘%Houston, TX%’; //中間有Houston, TX
+    Where Bdate like ‘__5______’; // _指定字數
+
+arithmetic options (+ - * / %)
+ex: Select 1.1*Salary /輸出時把Salary乘上1.1
+範圍可以用BETWEEN A and B 
+ex: Where (Salary Between 30000 and 40000)
+
+Order By 順序(order)有descending order, ascending order  
+預設通常是ascending
+ex:
+SELECT A,B,C
+FROM .....
+WHERE .....
+Order By A desc, B asc, C asc;
+
+
+Nested Query (query內有query)
+ex:
+Select Distinct Pnumber
+From Project
+Where Pnumber In (
+    Select Pnumber
+    From Project, Department, Employee
+    Where Dnum=Dnumber and MgrSSN=SSN
+    and Lname=‘Smith’)
+OR Pnumber In (
+    Select Pno
+    From Works_On, Employee
+    Where ESSN=SSN and Lname=‘Smith’);
+
+Select Distinct PNumber
+From Project, Department, Employee
+Where Dnum = DNumber and
+    MgrSSN = SSN and
+    Lname = ‘Smith’)
+Union
+(Select Distinct Pnumber
+From Project, Works_On, Employee
+Where PNUmber = Pno and
+ESSN = SSN and
+Lname = ‘Smith’);
+
+
+All, In, Any operation
+ALL是符合所有值, In是其中一個, Any是滿足任意一個
+ex: WHERE Salary > ALL (SELECT Salary FROM Employee WHERE Department = 'Sales');
+    //要大於()裡面全部的值
+    WHERE Salary > ANY (SELECT Salary FROM Employee WHERE Department = 'Sales');
+    只需要大於()裡面其中一個值
+    WHERE Department IN ('Sales', 'Marketing');
+    Department等於其中一個
+ex:
+Select Distinct ESSN
+From Works_On
+Where (PNo, Hours) In
+   (Select PNo, Hours
+    From Works_On
+    Where SSN=‘123456789’);
+ex: List the names of employees whose salary is greater than the
+salary of all the employees in department 5
+SELECT Fname, Lname
+FROM EMPLOYEE
+WHERE salary > all(
+    SELECT salary
+    FROM EMPLOYEE
+    WHERE Dno=5
+);
+
+exists function  exist()如果()內有東西就會返回true
+
+ex:
+Select E.Fname, E.LName
+From Employee As E
+Where Exists (
+    Select *
+    From Dependent
+    Where E.SSN=ESSN and
+    E.Sex=Sex and
+    E.Fname=Dependent_Name);
+
+也有Not Exist可以用
+ex: Retrieve the names of employees who have no dependents
+SELECT Fname, Lname
+FROM Employee E
+WHERE NOT EXIST (
+    SELECT *    //這裡的select後面放什麼不重要
+    FROM DEPENDENT D
+    WHERE D.Essn=E.Ssn
+);
+ex: List the names of managers who have at least one dependent
+SELECT Fname, Lname
+FROM Employee E
+WHERE EXIST (   
+    SELECT *
+    FROM Dependent D
+    WHERE D.Essn = E.ssn   //這個是dependent的條件
+)
+AND EXIST (
+    SELECT *
+    FROM department D
+    WHERE E.SSN=D.MgrSSN
+)
+
+
+Tables as Sets in SQL
+SQL的set operaioyns (都會去掉重複項) 如果要保留重複項要加個all ex: except all
+    //Duplicate tuples are eliminated from the result of set operations
+    set operation是在結合record 拿來結合的結果(query)的attribute要相同(屬性和數量)
+1.UNION: 合併兩個查詢結果 將結果中所有行組合在一起
+2.INTERSECT: 獲得兩個查詢結果的交集 只返回兩個查詢中都有的行
+3.EXCEPT: 獲得兩個查詢結果的差集 返回第一個結果中有但第二個結果沒有的
+EX: A table查詢出的(FNAME,LNAME)要和B table的(FN,LN)做結合 只有資料型態/數量相同就行
+
+ex:
+Make a list of all project numbers for projects that involve an
+employee whose last name is ‘Smith’, either as a worker or as a
+manager of the department that controls the project
+
+Select Distinct PNumber
+From Project, Department, Employee
+Where Dnum = DNumber and
+MgrSSN = SSN and
+Lname = ‘Smith’)                    //manager條件
+Union
+(Select Distinct Pnumber
+From Project, Works_On, Employee
+Where PNUmber = Pno and
+ESSN = SSN and      
+Lname = ‘Smith’);                   //worker條件
+
+
+explicit sets 可以有指定值的set搭配in使用
+ex:
+Select Distinct ESSN
+From Works_On
+Where PNo in (1, 2, 3)
+
+
+renaming of attributes 除了table可以alias以外 裡面的attribute也可以取別名
+ex:
+Select E.LName As Employee_Name, S.LName AS Supervisor_Name
+From Employee As E, Employee As S
+Where E.SuperSSN=S.SSN;
+一樣as可以省略 等同於
+Select E.LName Employee_Name, S.LName Supervisor_Name
+From Employee E, Employee S
+Where E.SuperSSN=S.SSN;
+
+------------------------------------
+
+relational join 把兩個或以上的table結合在一起
+通常是table1 join table2 on table1.xxx=table2.xxx
+ex:
+Select Fname, Lname, Address
+From (Employee Join Department on Dno=Dnumber) //
+Where DName=’Research’;
+
+可以有nested join (join出來的東西是table)
+
+交換律/結合律?
+1.在沒有null 2.不考慮left right join 時成立
+有null的話 結合律和交換律可能會錯
+
+inner join: 預設的join會是inner join 兩個table都滿足的情況 Table1.xxx=Table2.yyy
+    // 包含A&B
+outer join: 分三種 只要一個或是多個滿足就可以 A xxxjoin B
+    1.left join :左邊的一定要有       //包含了A和A&B
+    2.right join:右邊的一定要有       //包含了B和B&A
+    3.full join :左邊的右邊的都一定要有//包含A A&B B
+cross join: 笛卡爾積(cartesian product)
+
+------------------------------------
+
+Aggregate function & grouping in SQL
+
+aggregate function通常是在SELECT後面使用
+COUNT, SUM, MAX, MIN, AVG
+
+裡面可以有DISTINCT 
+ex: 
+SELECT COUNT(DISTINCT SALARY)
+FROM EMPLOYEE
+ex:
+retrieve names of all employees who have two or more dependents
+SELECT LNAME,FNAME
+FROM EMPLOYEE E
+WHERE (
+    SELECT * 
+    FROM DEPENDENT D
+    WHERE E.SSN=D.ESSN
+    ) >=2
+
+------------------------------------
+
+Grouping 
+有時候會需要分組(subgroup of tuple)使用aggregate function
+利用把grouping attributes 相同的為一組 做分類
+function會在這些subgroup上分開運作 (independently)
+SQL中用GROUP BY來做到
+EX:
+SELECT 
+FROM 
+WHERE 
+GROUP BY 
+
+group by後面可以有多個attribute (可以多個grouping attributes)
+ex:
+SELECT PNumber, PName, COUNT (*)
+FROM Project, Works_On
+WHERE Pnumber = PNo
+GROUP BY PNumber, PName
+
+
+THE HAVING-CLAUSE 用法是在對GROUP BY的結果做過濾(GROUP that satisfy certain condition)
+因為where後面不能用aggregate function 所以需要HAVING來協助
+group上的selection用having實現
+
+ex:
+SELECT PNUMBER, PNAME, COUNT (*)
+FROM PROJECT, WORKS_ON
+WHERE PNUMBER = PNO
+GROUP BY PNUMBER, PNAME
+HAVING COUNT (*) > 2    //過濾掉只有1個record的subgroup
+
+像是這題
+for each department that has more than five employees, retrieve the
+department number, number of its employees who are making more
+than $40K
+要注意有一些條件是分組後的 一些條件是分組前的
+對subgroup的過濾只有>5 
+    SELECT DNUMBER, COUNT (*)
+    FROM DEPARTMENT, EMPLOYEE
+    WHERE DNUMBER=DNO AND SALARY>40000 AND
+    DNO IN (SELECT DNO
+        FROM EMPLOYEE
+        GROUP BY DNO
+        HAVING COUNT(*) >5)
+    GROUP BY DNUMBER
+
+
+SQL query runs in this order
+from+join->where -> group by -> having -> select -> order by-> limit
+
+
+
+
+SQL ruery重點
+SELECT <attribute list>
+FROM<table list>
+[WHERE <condition>]
+[GROUP BY <grouping attribute(s)>]
+[HAVING <group condition>]
+[ORDER BY <attribute list>] 
+
+¨ The SELECT-clause lists the attributes or functions to be retrieved
+¨ The FROM-clause specifies all relations (or aliases) needed in the query
+    but not those needed in nested queries
+¨ The WHERE-clause specifies the conditions for selection and join of tuples
+    from the relations specified in the FROM-clause
+¨ GROUP BY specifies grouping attributes
+¨ HAVING specifies a condition for selection of groups
+¨ ORDER BY specifies an order for displaying the result of a query
+¨ A query is evaluated by first applying the WHERE-clause, then GROUP BY
+    and HAVING, and finally the SELECT-clause 
+
+
+------------------------------------
+
+
+Update in SQL
+有三個指令用來modify database 
+1.INSERT 用來新增新資料 要把新資料加到資料表中就會用到INSERT
+    ex:
+    INSERT INTO Employee (SSN, Fname, Lname, Salary) //指定要插的table和attribute
+    VALUES ('123456789', 'John', 'Doe', 50000); //values後面放值
+2.DELETE 用來刪除符合條件的資料
+    ex:
+    DELETE FROM Employee
+    WHERE Lname = 'Doe';
+    要小心記得加where 不然整個table會被刪掉
+    通常一次只會刪同一個table內的tuples
+3.UPDATE 用來修改已存在的資料 (1個或多個)
+    ex:
+    UPDATE Employee
+    SET Salary = Salary + 5000 //set指定修改的內容
+    WHERE Lname = 'Smith';     //where決定
+    update都是調整同一個relation中的tuples
+    要注意滿足referential integrity
+insert into通常一定連在一起  update也一定會配set做更新
+
+
+在DDL commands中下好的資料庫constraint 在對資料庫做update時 DBMS會自動做檢查
+
+
+------------------------------------
+
+View
+是一種虛擬資料表(virtual table)
+可以基於1.based table或是2.先前定義的view
+view不一定實際存在physical form 資料是動態生成的
+    所以查詢不會有什麼限制 (no limitations on querying)
+    但因為不是實際存在 會有update上的限制 (limit possible update operations)
+CREATE VIEW用來特定table name或defining query來創view
+    在defining query中的attribute name可以被繼承到view中
+Simplify the specification of queries 可以簡化查詢表達
+    讓使用者做更簡單的查詢來獲得資料
+view也可以用在security和authorization的部分
+DBMS會確保view的狀態做更新
+view不會在定義時就做出來 使用者要查詢view的時候才會生成資料 這可以確保資料是最新的
+
+總結 view和table的結構其實差不多 某些狀況下可以把view當作動態的table來看
+但只有在要用到時才會根據定義去生成view這個table
+所以table的創造可以基於實際的table或view或query 結果出來會是類似table的結構
+
+CREATE VIEW 名稱 AS .... 
+ex:
+CREATE VIEW EmployeeDepartments AS
+SELECT E.Fname, E.Lname, D.Dname
+FROM Employees E
+JOIN Departments D ON E.Dno = D.Dnumber; //建一個employee和department join的view
+查詢時可以使用
+SELECT * FROM EmployeeDepartments; //還是可以對view再做一些條件再輸出
+    from後面可以放實際存在的table也可以放view
+
+view一樣可以drop
+DROP VIEW view)name ;
+
+
+r.127-150 還沒看
+
+
+
+
+
+
+-------------------------------------------------------------------
+
+Data Model Using Entity-relationship model
+
+重點
+1.data model
+2.database design process
+3.example database application
+4.entity relational model
+ER Diagrams, naming convention & design issue
+
+複習 
+data model三個層次
+conceptual data model
+implementation data model
+physical data model 
+
+entity-relationship model屬於conceptual data models(接近user怎麼拿到data的層次)
+
+Database Design Process
+step1 確認需求 requirements collection and analysis
+    1.database requirement
+        DB designer去interview使用者有什麼需求
+    2.functional requirement
+        定義需要什麼operation或transaction 
+        一些software engineering的部分
+step2 conceptual design
+    建立一個conceptual schema給database 使用conceptual data model
+step3 logic design (data model mapping)
+    實際建一個database需要用commercial DBMS
+    把conceptual data model轉成implementation data model
+step4 physical design & application program design
+
+conceptual data model design重點在於類似database設計的藍圖
+    著重在資料屬性/關係的描述 不涉及儲存細節和技術
+    是一種簡潔的溝通工具 讓技術人員和非技術人員溝通 確保使用者的共識
+
+-------------------------------
+
+Entitiy-Relational Model
+重點1.entity types, entity sets, attributes & keys
+    2.relationships, roles&structure constraint
+    3.weak entity types
+
+
+
+Entity-Relationship Model
+Entity(實體)  可以想成是ER Model中最小的物件 可以是實際存在的東西像employee
+    也可以是conceptual existence: company, job....
+    對應到relational data model中的record
+Attriubte(屬性) 用來描述entity的性質和特徵 每個entity有一組attribute
+attribute有不同types
+    1.Simple vs composite
+    2.single-valued vs multivalued
+    3.stored vs derived
+1.Simple vs composite 
+    simple是簡單屬性 是atomic attribute 沒辦法再分成更小的單位(not divisible)
+        ex: age就算是simple attribute
+    Compoiste attribute 可以再分解成有意義的子屬性 ex: address可以再分縣市區等
+2.single-valued vs multi-valued
+    single-valued只有單一值   ex:birth
+    multi-valued會有不同數量個value ex:phonenumber
+3.Stored vs Derived Attribute
+    stored: 直接儲存在資料庫中的 ex:birth
+    derived: 不直接儲存 而是透過其他attribute計算出來的 ex:age可以從現在時間-birth
+        derived的好處:減少儲存壓力 減少更新頻率 避免synchronization問題
+
+
+values sets of attributes
+value set類似relational data model中的domain 但在er model中可以multi-value
+A: E -> P(V) //A是attribute, E是entity, P是powerset, V是可能的value
+attirbute可以看成是一個函數 功能是把entity對應到所以可能value組成的powerset
+
+Complex attributes包含 (attributes with composite component/multi-valued)
+    1.composite attribute  //可以切成更小的
+    2.multi-valued attributes //多值
+ex: {A, (B, C), (D, (E,F)) } 這是一種表示complex attribute的方法 
+    ()裡面有兩個以上attibute代表可以再切 (composite attributes)
+
+
+Entity Types 
+    有相同atrributes的entity集合
+    用來描述schema中有相同structure的entities
+    對應到relational data model中的table
+在ER diagram中
+entity type用矩形(rectangular)表示
+attribute用橢圓表示 用直線連接到entity type
+    multi-valued attribute會用雙橢圓標示
+    derived-attribute會用虛線橢圓 //從別的attribute計算出來的 ex:age, Num_of_employee
+
+Key attribute 
+key attribute的value必須在entity type中distinct for each other individual entity
+    (必須滿足uniqueness constraint) 對應到superkey primarykey的概念
+weak entity type 指的是沒有key attribute的entity type
+    ex: dependent的attribute:name birth sex relationship 有可能會有兩個一樣條件的人
+    所以才會是weak entity type
+在ER diagram中 key attribute會畫底線 
+    如果是composite的key attribute就每個子attribute都有底線
+    weak entity type會用雙矩形表示
+
+
+company DB 的例子   {}代表multi-valued ()代表composite attribute
+Department
+    Name, Number, {Locations}, Manager, MamagerStartDate
+¨ Project
+    Name, Number, Location, ControllingDepartment
+¨ Employee
+    Name(Fname, Minit, Lname), SSN, Sex, Address, Salary, BirthDate,
+    Department, Supervisor, {WorksON (project, Hours)}
+¨ Dependent
+    Employee, DependentName, Sex, BirthDate, Relationship
+
+
+
+
+-Relationships, Relationship Types, Roles, Structural Constraints
+
+Relationship type用來表示entity types之間的關係
+//Relationship type R among n entity type E1,E2,...,En
+    relationship是指entity之間的關係 , relationship type是entity type之間的關係
+relationship set是relationship的集合 所以relationship type算是一種relationship set
+relationship instance是最小單位 一個entity和一個entity之間的關聯
+每個relationship instance都需要包含要關聯的entity type中的entity
+
+ER diagram中用diamond-shaped(菱形)表示
+    用直線連接到關聯的entity type
+
+Degree of Relationship Type
+依照參加relatiobship的entity type數決定 2=>Binary, 3=>Ternary
+
+
+Role name & recursive relationships
+Role
+    在relationship中參與的每個entity type都有一個角色(role)
+    這在一個relationship有同一個entity type時很有用 ex:employee和supervisor
+recursive relationship
+    同一個entity在同一個relationship type中扮演不同角色
+    ex: A是B的employee 同時 A也是C的supervisor
+    這樣就會有一個組織階層的關係
+
+Constraints on Relationship types
+structural constraint有兩種
+    Cardinality ratio constraint(基數比率約束)
+    Participation constraint (參與約束)
+1.Cardinality Ratio Constraint
+    是binary relationship專有的
+    用來表示兩邊的entity可以參與relationship instances的數量
+    會有    //從instance的數量去想
+    1:1 一個employee只能管理一個department
+    1:N 一個department可以多個employee 但一個employee只能一個department
+    N:1 
+    M:N 一個employee可以參加多個project 一個project也可以有多個employee
+
+
+Participation Constraints 
+在講某一個entity在這個relationship中的參與情況
+定義一個entity是否必須與另一個entity type透過relationship互相連接
+//這會影響到實體存在的方式 可以幫助判斷結構
+1.Total Participation (Existence Dependency)
+    每個entity都必須和另一個entity type連接 或者說每一個entity都必須有這個relationship
+    會有only if的邏輯出現 假設employee和department之間有total participation
+        代表employee entity存在only if他參與works_for的relationship
+    在ER diagram中會用double line來表示total participation
+2.Partial participation
+    entity type內的entity不一定需要和這個relationship有關聯(部分參與)
+    ex:employee和department之間manage的關係 
+        employee不一定要管理所以單線, department一定要有employee管所以雙線
+    在ER diagram中用single line表示partial paticipation
+
+
+Attributes of Relationship Types
+    relationship types也可以有attributes
+ex: Employee–Works_On(Hour)–Project
+
+
+Weak Entity Type: 沒有key的entity type
+    因為自己本身無法唯一識別 所以依賴於relationship對應到的entity type做唯一識別
+    對應到的entity type叫做owner或parent
+    ex: dependent是weak entity type所以依賴和employee的dependent_of關係
+    weak entity type一定會有用total participation連接到的其他entity type
+    weak entity type如果沒有owner就沒辦法identify
+Paritial key是weak entity type內選attribute set用來唯一識別owner entity type
+ex: 沒有同一個employee有同一個名字的dependent的情況下 name就可以當partial key
+在ER diagram中weak entity type的relation用double line diamonds(雙菱形)表示
+//意味著雙線菱形和雙線矩形一定會同時出現 因為一個是weak的entity一個是weak的relationship
+
+p.59-66是example
+
+
+------------------------------------------
+
+ER Diagrams, Naming Conventions & Design Issues
+
+Alternative Notations for the ER Diagrams
+(min, max)的標法 這比前面1:1 1:N的那種更詳細 每個entity到relationship的連線都有標
+ex: (0,1)代表一個entity最少可以0個參與最多1個
+    (1,n)代表最少1個參與 可以多個參與
+min = 0 代表他是partial participation
+min > 0 代表total participation
+max 決定了cardinality ratio constraint
+ex:
+supervisor -> supervision關係 可以管0個也可以管多個人 =>(0,n)
+supervisee -> supervision關係 不一定被管 管自己的最多1個仁 => (0,1)
+
+
+
+
+Summary
+Entity-Relationship Model
+– Entity Types
+    • Attributes
+        – Simple vs. composite
+        – Single-valued vs. multivalued
+        – Stored vs. derived
+    • Domain, Null
+    • Key attributes
+– Relationship Types
+    • Cardinality ratio constraints
+    • Participation constraints
+        – Total participation
+        – Partial participation
+
+p.77開始example
+
+一些額外注意的點
+relational data model也有derived attribute的概念
+relational data model中也有Cardinality Ratio Constraint,
+    Participation Constraint的概念 但不會特別去顯示他
+
+ER model是Conceptual而relational data model是implementation data model
+    的原因是ER model在抽象層次沒有明確表達資料型別 constraint等等
+
+ER model沒有特別提到foreign key
+
+
+
+-------------------------------------------------------------------
+
+
+ER-Relational Mapping 
+目標是把Entity Relationship Model轉成Relational Data Model
+
+ER-to-Relational Mapping Algorithm 有7個步驟 每一步處理一個東西
+step 1: regular entity type E
+step 2: weak entity type W
+step 3: binary 1:1 relationship type R
+step 4: binary 1:N relationship type R
+step 5: binary M:N relationship type R
+step 6: multi-valued attribute A
+step 7: n-ary relationship type, n>2
+
+
+Step1:  //處理一般的entity type
+    對於regular Entity type E //單矩形
+        create relation R   //relation就是table  
+        在R中放入E所有的simple attribute
+        如果有composite attribute要拆成simple attribute再放進去
+        選擇E的其中一個key attribute作為primary key
+    //簡化來說就是對每個entity建一個table並且放simple attribute進去 選primary key
+    ex:
+    – Create relation employee, primary key SSN
+    – Create relation department, primary key Dnumber
+    – Create relation project, primary key Pnumber
+
+Step2:  //處理weak entity type
+    對於weak entity type W with owner E
+        create relation R //table
+        在R中放入W所有的simple attribute
+        把owner E的primary key加到R中設為R的foreign key
+        把(primary key of owner, partial key of W)設為primary key
+    //簡化來說就是對每個weak entity建一個table把simple attribute放進來
+        然後把owner的primary key加進table裡當作foreign key
+        再把(owner primary key, partial key)作為自己的primary key
+    Ex.
+    – Create relation Dependent
+    – Include SSN as foreign key of Dependent
+    – Primary key of Dependent (ESSN, Dependent_Name)
+    – Choose Cascade option for the referential constraint on this
+        foreign key
+
+Step3: //處理binary 1:1 relationship type R 假設是T S兩個entity
+    先找total participation的relation S //雙向都是一對一 這特定了1:1 
+    把T的primary key複製到S當作foreign key參考T
+    再把relation R的simple attribute加到S的attribute (加到foreign key的那邊)
+    //選擇S是為了盡量讓S擁有所有需要的資訊
+    選哪個是S哪個是T邏輯上沒有差別，但會盡量把更重要的放在S
+
+這裡討論N:1 應該拿N還是拿1的複製給另一邊當foreign Key
+應該要拿1的那邊複製給N的那邊(因為n的那邊可以唯一)
+ex:     N                1     //n的那邊資料比較多
+e1 e2 e3 e4 e5 e6     d1 d2 d3
+複製到對方的情況下 如果把e複製給d 每個d會有多個e => multi-valued
+    如果把d複製給e 每個e只有一個d 就沒有multi-valued的問題
+
+
+Step4: //處理binary N:1 relationship type R 
+    找1:N的relation type R 
+        確認relation S (N-side)和relation T (1-side)
+        把T (1-side)的primary key複製給S當作foreign key
+        relation R的simple attribute放在S那邊
+    //可以想成是把少資料的那邊(1的那邊)複製給多資料的(n的那邊)當作foreign key
+        relation的attribute一樣放到n那邊()
+
+Step5: //處理binary M:N relationship type R
+    建一個新的relation S來表示R
+    複製兩邊(A,B)的primary key到S 組合起來(PKA,PKB)當作primary key
+    然後把relation的attribute加到S的attribute
+    //因為如果照前面step4的方法 不管哪邊複製都會有multivalue 所以這邊會選擇建立
+        一個新的table用來表示這個relationship 把A B的primary key都複製過來分別
+        當作foreign key 組合起來的(PKA,PKB)又可以當成primary key 
+        最後把relationship type的attribute當作S的attribute
+
+Step6: //處理multivalued attribute A (在relation S下)
+    建一個新relation R
+    在R中創一個attribute來儲存A的value //multivalued就分成多個record做儲存
+    把S的primary key (K)複製到R來當作foreign key
+    R的primary key是 (A,K) //把foreign key和A合起來當作primary key
+    如果A是composite就放他的simple components
+    //multivalue的處理是去建一個新table來把multivalue用多個record做分開
+        原本在的table的primary key複製過來當作foreign key做對應
+        把這個foreign key和A值合起來當作primary key (因為multi value這兩個結合才唯一)
+        最後注意A如果composite要換成simple components
+
+Step7: //處理n-ary relationship type R, n>2
+    建一個新的relation S來表達R
+    把這些用到的Entity的primary key都複製過來當作foreign key
+    把relation的simple attribute放到attribute
+    複製過來的所有foreign key組合起來當作primary key
+
+
+結論
+
+Step 1: for each regular entity type E
+Step 2: for each weak entity type W
+Step 3: for each binary 1:1 relationship type R
+Step 4: for each binary 1:N relationship type R
+Step 5: for each binary M:N relationship type R
+Step 6: for each multivalued attribute A
+Step 7: for each n-ary relationship type, n>2
+
+12在處理entity 345處理relationship 67處理multivalue和高維relationship type
+
+ER Model                        Relational Model
+Entity type                     Entity relation
+1:1 or 1:N relationship type    Foreign key (or relationship relation)
+M:N relationship type           Relationship relation & 2 foreign keys
+N-ary relationship type         Relationship relation & n foreign keys
+Simple attribute                Attribute
+Composite attribute             Set of simple component attributes
+Multivalued attribute           Relation & foreign key
+Value set                       Domain
+Key attribute                   Primary (or secondary) key
+
+
+-------------------------------------------------------------------
+
+
+The Relational Algebra & Relational Calculus
+relational algebra(關聯代數)是一種操作符號 提供查詢和操作數據的基本操作
+    可以對表格進行操作 生成新的關係作為結果
+    基本操作:Selection(選擇)     用條件篩選record
+            Projection(投影)    選取特定的column
+            Join(連接)          將兩個關係根據共同屬性結合
+            Union(合併)         將兩個關係的record合併 並去除重複的reocrd
+            Difference(差)      找一個關係中有另一個沒有的record
+            Cartesian Product(笛卡爾積) 返回兩個關係的所有可能組合
+    relational algebra是過程性的 需要明確指定如何獲得結果 (一系列的操作)
+relational calculus(關聯演算)
+    更高級的查詢方式 使用數學邏輯描述查詢 不會具體指定操作
+    兩種基本形式
+        1.Tuple Relational Calculus(TRC): 使用元組變數 描述tuple要滿足的條件
+        2.Domain Relational Calculus(DRC) 使用屬性變數 描述attribute要滿足的條件
+    relational calculus是非過程的 只需描述結果 不指定如何計算
+calculus可以想成是更高的層次 講說想要什麼需求 具體怎麼操作是algebra
+
+
+
+Relational Algebra
+    是一個basic set of operations讓使用者可以指定檢索
+    algebra operations會產生新的relation(table) 通常會是virtal table
+重要性
+    1.他是formal foundation for relational model operations
+        定義了操作和規則 可以用來查詢或管理資料
+    2.用來實現和優化DBMS中的查詢和管理 DBMS通常會把用戶的查詢轉成relational algebra
+        來進行優化 提高效能
+    3.是SQL的基礎
+
+relational algebra有兩種 (two groups of operations)
+    1.set operations from methematical set theory
+        ex: union, intersection, set difference, cartesian product
+    2.RDB Operaiotns
+        ex: select, project, join
+
+
+The Select Operation (select用sigma)
+Select (σ): 選取滿足selection condition條件的relation中的subset of tuples
+select是一個類似filter的角色用來過濾符合condition的tuples
+標準式 σ_<selection condition>(R)  //<>內的東西是放在下標
+    Selection condition是<attribute name><comparison op><constant value>
+    ex: Salary>30000, DNO=4
+ex: σ_<DNO = 4>(Employee)
+    σ_<(DNO=4 and Salary >25000) or (DNO=5 and Salary > 30000) >(Employee)
+
+一些select option的property
+1.same degree: select出來的結果和Select之間的R degree相同(attribute數量相同)
+2.Cardinality Constraint: |σ_c(R)|<=|R| 結果的tuple數不會大於原本R的tuple數
+3.commutative property (交換率): select可以交換
+     σ_<c1>(σ_<c2>(R))=σ_<c2>(σ_<c1>(R))
+4.cascade of select operations 可以把多次的select合併成一個(用AMD合併條件)來操作
+    σ_<c1>(σ_<c2>(...)) = σ_< <c1>AND<c2>AND<c3>.....>(R)
+    //可以把selection condition合併起來 //conjunctive => AND
+
+
+The Project Operation (project用π)
+Project(π): 建一個新table 從原本relation中選一些columns 丟棄掉沒被選到的columns
+標準式 π_<attribute list>(R)
+    attribute list是relation R中的一些attributes
+ex: π_<Lname,Fname,Salary>(Employee)
+Duplicate elimination: 在沒有選到key attribute的情況有可能會有重複(duplicate)tuple
+    project operation會把重複的tuple remove掉
+
+一些project operation的property
+1.cardinality constraint |π_L(R)|<=|R| 結果的tuple數不會大於原本R的tuple數
+2.如果L1包含於L2  L1⊆L2 =>  π_<L1>(π_<L2>(R)) = π_<L1>(R) 
+    //因為L1的範圍比L2更小 所以符合L1就會符合L2了
+3.NO commutative property 沒有交換率 π_<L1>(π_<L2>(R)) != π_<L2>(π_<L1>(R))
+    //attribute list上的attribute如果在R中沒有的話會報錯
+
+sequence of operations
+π_<Fname, Name, salary> (σ_DNO=4(Employee) ) 可以把他分成兩步
+=   DEPT4_EMPS <- σ_DNO=4(Employee)
+    R <-> π_<Fname, Name, Salary>(DEPT4_EMPS)
+可以rename relation和attribute name
+Dept4_Emps <- σ_DNO=4(EMPLOYEE)
+ R(FirstName, LastName, Salary) <- π_<fname,Lname,Salary>(Dept4_Emps)
+
+這邊為止前面都是RDB operation
+
+------------------------------------
+這裡開始set operation
+
+
+Set Theoretic Operations
+
+set theorem的binary operations
+    UNION: 聯集                 R1 ∪ R2
+    INTERSECTION: 交集          R1 ∩ R2
+    SET DIFFERENCE: 差集        R1 - R2
+    CARTESIAN PRODUCT: 笛卡爾積 R1 x R2
+
+property of ∪, ∩, -
+    union compatable: 計算R1(A1,...,An) & R2(B1,...,Bn)時一定要滿足
+        1. degree(R1)=degree(R2)=n //兩個relation的attribute數相同
+        2. dom(Ai)=dom(Bi) for i=1...n //每個對應到的attribute的domain要相同
+            也就是要是相同的資料型態
+        都滿足的話就會說R1 R2 union compatible
+    通常運算結果會沿用R1的column name
+
+union(∪),intersection(∩) 聯集交集都有commutative(交換律) associative(結合律)
+difference(-) 差集沒有
+
+cartesian product
+R(A1,A2,...,Am) x S(B1,B2,...Bn) = T(A1,A2,...,Am,B1,B2,...,Bn)
+    R S不需要滿足union compatitive
+tuple t in T由tuple r in R和tuple s in S combination出來
+    R[A1, A2, ..., Am]=r and S[B1, B2, ..., Bn]=s
+nR: R的tuples數,  nS: S的tuples數  => T會有nR*nS個tuples
+
+e.g. retrieve for each female employee a list of the names of her
+dependents
+FEMALE_EMPS ß s SEX=‘F’(EMPLOYEE)
+EMPNAMES ß P FNAME,LNAME,SSN(FEMAL_EMPS)
+EMP_DEPENTS ßEMPNAMES x DEPENDENT
+ACTUAL_DEPENDENT ß sSSN=ESSN(EMP_DEPENDENT)
+RESULTß P FNAME,LNAME,DEPENDENT_NAME(ACTUAL_DEPENDENT)
+
+
+Join Operation (∞)
+    可以想成是cartesian product之後加上SELECT
+    條件變成是join condition
+    ex: DEPT_MGR <- DEPARTMENT ∞_<MGRSSN=SSN> EMPLOYEE
+
+<複習>
+    relational algebra可以分成兩種
+        1.set operation: union, intersection, set difference, cartesian product
+        2.RDB Operation: select, project, join
+
+complete set of relational algebra operations
+    所有的operations都可以表示為(∪, π, σ, x, -)的組合
+    ex: ∩ 可以表示為 R ∩ S= R∪S - ((R-S)∪(S-R))
+        join可以表示成x完做σ
+
+relational complete是在說一個查詢語言(query language)支援complete set
+    要有這些操作(∪, π, σ, x, -)
+
+
+額外的一些relational operations
+aggregate functions ex:SUM, COUNT AVERAGE, MIN, MAX
+標準型 <grouping attributes> F <function list> (R)
+    //grouping attirbutes are optional
+ex:
+R(AVGSAL) <- F_<AVERAGE SALARY> (EMPLOYEE)
+
+recursive closure Operations指的是拿第一次弄出的結果放到下次用
+ex:如果想找直接或間接管理的員工 就先做一次select 結果是 1
+    在把1做一次select 結果是2
+    最後把1 2做union得到result
+Transitive Closure是指用dynamic programming 以剛剛的例子就是去找他所有層級的員工
+
+
+relational calculus
+是non-procedure Language 是一種declarative expression來表示回傳的request
+重點是表達what is to be retrieved
+calculus有很多種寫法 寫法不影響實際怎麼執行query
+
+expressive power(查詢能力) relational calculus和algebra的查詢能力是相同的
+Relational Complete 在講relational query language是complete if 
+    能表示出任何relational caculus能表示的query
+
+
+tuple variables & range relations 
+用{t | COND(t) } 表示set of all tuples t that satisfy COND(t) 
+    t: tuple variable , COND(t):conditional expression involving t
+ex: {t.Fname, t.Lname | Employee(t) and t.salary > 50000}
+
+{ t1.Aj, t2.Ak, …, tn.Am | COND(t1, t2, …,tn, tn+1, tn+2, …, tn+m) }
+COND是一個well-form formula
+    formula(F): 由predicate calculus atoms透過AND OR NOT連接而成
+atoms: R(ti)
+
+
+universal quantifier: ∀
+existence quantifier: ∃
+會說variable t is bound if 他前面有quantifier ex: ∃t, ∀t
+ex:
+• F1: d.dname=‘research’
+• F2:(∃t)( d.dnumber = t.Dno )
+• F3:(∀d)( d.MgrSSN=‘333445555’ )
+這種情況下 dF1 F2是free的 在F3是bound的  t在f2是bound的
+
+query=> {要的東西(table.attribute) | 條件(由formula組成)}
+p.47-49是例子
+
+
+Domain Relational Calculus 是一種query language 
+    用在relational database表達查詢需求
+SQL是based on tuple relational calculus
+
+QBE(Query-By-Example) 是一種與domain relational calculus相關的查詢語言
+    是第一種圖形查詢語言 用最小的語法(syntax)來讓使用者簡單操作
+    不需要編寫傳統的SQL語言 ex:microsoft Access
+
+domain/tuple relational calculus的查詢能力都是和relational calculus相同的
+
+在domain relational calculus中的variable range指的是單個attribute的範圍
+    而不是正個tuple 變數用x1,x2,...,xn表示
+
+表達方式: {x1, x2, …, xn| COND(x1, x2, …, xn, xn+1, xn+2, …, xn+m)}
+xi各自有自己的domain
+formula由atom(原子)和AND OR NOT連接而成 formula之間連接後還是formula
+
+結論
+Summary
+¨ Relational algebra (How)
+    – Set operations from mathematical set theory
+        • Union
+        • Intersection
+        • Set Difference
+        • Cartesian Product
+    – Specially for RDB Operations
+        • Select
+        • Project
+        • Join
+¨ Relational Calculus (What)
+    • Tuple relational calculus (SQL)  //一般語言的
+    • Domain relational calculus (QBE) //圖形介面的
+
+
+
+
+-------------------------------------------------------------------
+
+functional dependencies & normalization for relational databases
+
+outline
+¨ Good Relation Schemas
+¨ Informal Design Guidelines for Relational Schemas
+¨ Functional Dependencies
+¨ Normal Forms based on Primary Keys
+¨ General Definitions of Second & Third Normal Forms
+¨ Boyce-Codd Normal Form
+
+good relation schema
+如何判斷是good relation schemas 衡量如何把attributes分組可以更符合資料庫需求
+2個評估的層面
+1.logical level (conceptual level): 從使用者的視角 更容易理解資料的含意
+    讓資料之間的relation和query時的意義更明顯
+2.implementation (storage level): 從儲存和更新的角度 考慮在底層如何更有效存取/更新
+    減少儲存空間的浪費
+
+4個用來衡量schema設計品質的非正式標準
+1.semantics(語義) of the attributes: 確保關係中的屬性有清楚的意義 代表特定的實體/關係
+2.reducing the redundant valus in tuples: 減少重複儲存的資料 來節省空間 提高一致性
+3.reducing null values in tuples: 減少null出現 因為null通常代表某些attribute不適用
+    於那個tuple 數據結構會比較複雜、不直觀
+4.disallowing the possibility of generating spurious(虛假的) tuples:
+    要避免不必要和不真實的tuple出現 尤其是join時可能產生一些不符合邏輯的spurios tuple
+
+clear semantics
+guideline1:
+    不要把多個entity type或relationship type合成single relation
+    如果只包含一個entity type或relationship type可以表達的更清楚
+    p.9頁是以entity type為分類 p.10是以relationship type為分類
+    ->是functional dependency
+
+guideline2:
+    應該要設計base relation schema(基礎關係模式/基礎表格)來避免insertion deletion
+        或modification可能造成的anomalies(異常:不一致或錯誤) 
+    如果無法完全避免anomalies就要確保更新資料庫的程式可以處理這個問題
+    在做grouping attribute into relational schemas時考慮兩個點
+    1.storage space
+    2.update anomalies
+        1)insertion anomalies ex:新增一個還沒有部門的員工資料 但系統限制一定要有部門
+            這樣就可以去分割成不同表格 避免缺值導致無法insertion
+        2)deletion anomaly ex:當員工離職時可能連員工專案的資料也刪到
+            這樣就可以把不同類型資料分開 避免刪除某個紀錄時連帶刪除其他資訊
+        3)modification anomaly 當修改某一個資料時需要連帶更新多處的資訊 更新不完全
+            就會不一致 解決方法:正規化 一次更新可以反映到不同的表中
+
+guideline3:
+    盡量避免出現plcaing attributes in a relation會造成vlaue很常是null的情況
+    如果null無法避免 要確保他是特例情況 不可以大部分都是null
+    ex: employee只有少數有office_number 那就可以另外再去建一個employee-office_num
+        的表格去表示他們的關係
+    null產生的原因: grouping attributes to a fat relation
+    null的disadvantage
+        1.waste storage space 
+        2.aggregatation function容易出錯
+        3.different interpretation 
+            null就有可能是not apply, unknown, known但是還沒填進來
+
+guideline4:
+    目標是想要在join的時候不要生出多餘的tuple 如果在join時沒用一個洽當的condition 
+        就會出現這些多餘的tuple叫做spurious tuple   會導致查詢的結果錯誤
+    設計讓要join的table可以用equality condition做連接 可以用primary/foreign key來
+        實現確保唯一 (no spurious tuple)
+    用來當condition的attribute要唯一 不然會有重複匹配的情況出現
+    盡量都用primary key或foreign key的euqality condition作為join的條件
+    如果情況無法避免就不要join他們
+
+
+Summary of Design Guidelines
+
+Anomalies imply additional work to be done during
+    insertion into & modification of a relation
+
+Anomalies may cause accidental loss of information
+    during a deletion from a relation
+
+Nulls wastes storage space and make difficulty of
+    performing aggregation operations and joins due to null values
+
+Generation of invalid & spurious data during joins on
+    improperly related base relations
+
+
+-------------------------------------
+
+Functional Dependency
+
+functional dependency定義: X->Y , X和Y分別是一個set of attributes 在relation R中
+    對於任意兩個tuples t1 t2 in R
+    如果t1[X]=t2[X] then t1[Y]=t2[Y]
+EX: employeeid      name        department      salary
+    123             Alice       hr              1000
+    123             Alice       finance         2000
+    只要name相同employeeid就會相同 這樣代表name->employeeid是functional dependent
+    functional dependency不是雙向的 X->Y不代表Y->X
+X->Y代表用X可以唯一確定Y的值 也就是Y的value取決於(depend on)X的value
+會說Y is functional dependent on X
+X如果是candidate key 在R中的任意attribute set Y都要滿足X->Y
+functional dependency不能由資料庫判斷 因為可能會有目前dependent但之後新增一些
+    資料以後不符合dependency 所以要從semantics of the attributes(語義)上面去判斷
+Transitivity: X->Y, Y->Z 則X->Z
+
+Trivial Functional Dependency (平凡函數相依)
+X ⊇ Y的情況下 X->Y一定成立 其他functional dependency的叫做nontrivial
+ex: {SSN, BDate} -> {BDate} is a trivial FD
+
+inference rules(推理規則)
+
+– Reflexive rule: if X ⊇ Y, then X->Y
+– Augmentation rule: {X->Y} |= XZ->YZ
+– Transitive rule: {X->Y, Y->Z} |= X->Z
+– Decomposition rule: {X->YZ} |= X->Y
+– Union rule: {X->Y, X->Z} |= X->YZ
+– Pseudotransitive rule: {X->Y, WY->Z} |= WX->Z 
+
+Armstrong’s inference rules有三個
+1.Reflexivity (IR1) : if X ⊇ Y, then X->Y
+2.Augmentation (IR2) : {X->Y} |= XZ->YZ
+3.Transitivity (IR3) : {X->Y, Y->Z} |= X->Z
+
+closure of F  ,  The set of dependencies F+
+F+是從F推出來的
+ex:
+F=
+– {SSN} -> {Ename},
+– {Pnumber} -> {Pname, PLocation}
+– {SSN, PNumber} -> {Hours}
+F+=
+– {SSN} -> {SSN, Ename}
+– {Pnumber} -> {Pnumber, Pname, Plocation}
+– {SSN, Pnumber} -> {SSN, Pnumber, Ename, Pname, Plocation, Hours}
+
+
+Normal Form Based on Primary Keys
+
+Database的設計方法分為bottom-up和Top-down
+Bottom-up design:
+    從最basic的attribute之間的relationship開始考慮
+    實際上不太會用這種 因為會有大量的二元relationship 會很複雜、難管理
+    design by synehesis(綜合設計): 從這些二元relationship合成更大的結構
+Top-down design:
+    先把attribute做初步的grouping (conceptual design) ex:ER-diagram
+    開始做decomposition(分解)來滿足資料庫要求 確保每個table正規化 一致性
+    deisgn by analysis(分析設計): 根據需求分析後再繼續處理
+
+
+
+
+-----------------------------------------
+
+Normalization 
+由Codd提出
+是top-down design , design by analysis , 依照必要性分解(decompose) relations
+
+Normal form 
+1NF   
+2NF   
+3NF 
+BCNF  //123BCNF都是處理functional dependency
+4NF   //處理multivalue 
+5NF   //處理join-dependency 
+
+normalization是一個標準化的過程 用keys和functional dependency分析relational schema 
+目標達到1.minimizing redundancy 2.minimizing anomalies of insertion deletion update
+不滿足條件的relational schema會被拆成更小的relational schema來符合normal form test
+
+<複習>
+superkey 可以用來唯一識別record的一組attribute set 
+key: minimal superkey (只要再移除任何attribute他就不能唯一識別)
+candidate key = key = minimal superkey 
+從candidate key選出來的叫做primary key 
+prime attribute是candidate key裡面有的屬性 
+nonkey attribute = nonprime attribute代表不在任何的candidate key裡面
+只要不是prime attribute的就是nonkey attribute
+    ex: {a,b},{c}兩個candidate key 那a,b,c都是prime attribute , d是nonkey attribute
+
+First Normal Form  (1NF)
+1. attribute的domain只包括atomic value (就是不能composite attribute)
+2. tuple內的attribute value必須是single value from domain (就是不能multivalue)
+簡單來說1NF確保simple value和single value
+經常被當作relational data model的基本定義
+
+處理multivalue 
+approach 1:多建立一個table放原本table的primary key 和 multivalue的值
+approach 2:直接把multivalue拆開成多筆資料 //會造成資料redundant 
+approach 3:擴充multivalue的那個attribute //可能會導致null很多
+
+
+Full functional dependency(完全函數依賴)
+    X->Y 代表x可以唯一識別y
+    如果X->Y is full functional dependency則如果把任何X的attirubte移除
+        都會導致functional dependency不成立
+    可以想成X裡的所有屬性都是這個依賴關係X->Y不可或缺的一部分
+    ex: {SSN,PNumber}→{Hours} 某個員工某個project決定工作時數
+
+Partial functional dependency(部分函數依賴)
+    如果把X的attribute移除還有可能functional dependent就是partial的
+    ex: {SSN, PNumber} -> {Ename} //ssn就可以決定ename了
+
+Second Normal Form (2NF)
+    首先要滿足1NF
+    然後所有nonprime attribute(不在candidate key裡面的attribute)都要
+        fully functional dependcy on primary key
+    也就所有不是key attribute的部分都要完全依賴於primary key 
+    如果relation R不符合2NF 可以decomposition(拆解)成多個2NF table
+
+ex: SSN PNUMBER HOURS ENAME PNAME PLOCATION    //pk={SSN, PNUMBER}
+HOURS完全依賴SSN PNUMBER沒問題, ENAME完全依賴SSN, PNAME PLOCAIOTN完全依賴PNUMBER
+因此不滿足2NF 要做拆分
+SSN PNUMBER HOURS一組, SSN ENAME一組, PNUMBER PNAME PLOCATION一組
+
+Transitive dependency
+    Z不是candidate key也不是prime attribute(跟key attribute無關的概念)
+    的情況下X->Z且Z->Y 這種情況下說X->Y is transitive dependency
+    ex: {SSN}->{DNumber} -> {Dname, DMgrSSN} 
+
+Third Normal Form (3NF)
+    首先滿足2NF
+    然後檢查任何nonprime attribute都不能有transitive dependency on primary key
+    //這裡的重點不在於誰參考誰 而是只要有transitive關係就要把它獨立出來做table
+    所以{SSN}-> {DNumber} -> {Dname, DMgrSSN} 的情況下會把
+        {DNumber} -> {Dname, DMgrSSN}獨立出來一個table
+
+小結論:
+    1nf在確保single value和simple value (atom原子性)
+    2nf在確保non-key attribute由primary key完全決定
+    3nf在確保non-key attribute不會被primary key間接決定 要直接決定
+
+Problematic functional dependency
+    這裡在說X->Y 的X是什麼狀況下會被2nf 3nf檢查到錯誤 (如何檢查2nf 3nf錯誤)
+    1. proper subset of the primary key: partial functional dependency
+        在講functional dependency X->Y中 X如果是proper subset就會是partial FD
+        //proper subset指的是primary key的subset
+        簡單來說左邊如果是primary key的子集 代表有partially FP 會被2NF檢查
+    2. nonkey attribute:
+        左邊如果有nonkey attribute代表有transitive FP 會被3NF檢查
+
+
+General Definition 2NF (通用版本的2NF)
+差別只在於原本是fully functional dependent on primary key of R
+    但通用版本要fully FD on any key
+多考慮了其他candidate key就可能會出現原本沒有的partial FD的問題
+
+General Definition 3NF 也是一樣的概念
+變成需要檢查所有candidate key都直接決定
+
+Alternative definition of 3NF就是指滿足general版本的2NF 3NF
+• It is fully functionally dependent on every key of R
+• It is non-transitively dependent on every key of R
+
+3NF也可以看成是要滿足兩個中的其中一個條件 X->Y
+(a) X is a superkey of R or      //左邊一定可以唯一識別
+(b) A is a prime attribute of R  //右邊不可能transitive
+邏輯:   滿足3nf => a or b 
+        違反3nf -> (not a) and (not b)
+
+
+Boyce-Codd Normal Form (BCNF)
+比3NF更嚴謹 更簡化
+多一個條件X->A的情況 X一定要是superkey
+就是把3NF的兩種情況縮減到只剩下一種 一定要X是superkey
+違反了一樣就去獨立出table
+
+ex:
+– FD1: {student, course} -> {instructor}
+– FD2: {instructor} -> {course}
+這樣只能是{student, course}為primary key 因為instructor不能決定student
+1NF 2NF沒問題
+不滿足3NF是因為 {student, course} -> {instructor} -> {course}的情況下
+    course不是candidate key 所以違反3NF
+BCNF因為3NF違反所以一定也違反
+
+
+結論
+Conclusions
+Redundancy
+– Insertion anomaly
+– Deletion anomaly
+– Modification anomaly
+Normalization: decomposition based on functionaldependency
+– First Normal Form: Relational Schema
+– Second Normal Form: full functional dependency
+– Third Normal Form: non-transitive functional dependency
+– Boyce-Codd Normal Form
+
+有時候會為了performance把normalization停留在比較低的等級
+denormalization: 把高層次的NF join在一起做儲存 變成較低層的NF
+通常還是建議保持高度正規化 利用view簡化查詢就可以了
+
+
+
+
+
+
+
+
+
+-------------------------------------------------------------------
